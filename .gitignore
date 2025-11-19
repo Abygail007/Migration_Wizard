@@ -1,0 +1,10 @@
+# Dossier de logs de MigrationWizard
+Logs/
+
+# Fichiers de log éventuels à la racine ou ailleurs
+*.log
+*.html
+
+# Divers fichiers temporaires
+*.tmp
+*.bak
