@@ -1,5 +1,5 @@
-# MigrationWizard.Main.ps1
-# Point d'entrée principal du nouveau MigrationWizard
+﻿# MigrationWizard.Main.ps1
+# Point d'entrÃ©e principal du nouveau MigrationWizard
 
 # Assure que le script tourne depuis son propre dossier
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -38,3 +38,4 @@ Initialize-MWLogging
 
 # Lancement de l'application
 Start-MigrationWizard
+

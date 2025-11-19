@@ -1,4 +1,4 @@
-# src/Core/OneDrive.psm1
+﻿# src/Core/OneDrive.psm1
 
 function Get-MWOneDriveInfo {
     <#
@@ -23,3 +23,4 @@ function Resolve-MWPathWithOneDrive {
 }
 
 Export-ModuleMember -Function Get-MWOneDriveInfo, Resolve-MWPathWithOneDrive
+

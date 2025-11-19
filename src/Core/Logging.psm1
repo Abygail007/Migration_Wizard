@@ -1,4 +1,4 @@
-# src/Core/Logging.psm1
+﻿# src/Core/Logging.psm1
 
 # Variables internes au module
 $script:MWLogRoot      = $null
@@ -10,7 +10,7 @@ function Initialize-MWLogging {
         .SYNOPSIS
             Initialise l'infrastructure de logs.
         .DESCRIPTION
-            Crée un dossier Logs dans le répertoire courant et initialise
+            CrÃ©e un dossier Logs dans le rÃ©pertoire courant et initialise
             un fichier texte et un fichier HTML pour la session.
     #>
 
@@ -30,7 +30,7 @@ function Initialize-MWLogging {
     $script:MWLogFile     = Join-Path $script:MWLogRoot ("MigrationWizard_{0}.log" -f $sessionId)
     $script:MWHtmlLogFile = Join-Path $script:MWLogRoot ("MigrationWizard_{0}.html" -f $sessionId)
 
-    $header = "[{0}] --- Démarrage de MigrationWizard (session {1}) ---" -f (Get-Date), $sessionId
+    $header = "[{0}] --- DÃ©marrage de MigrationWizard (session {1}) ---" -f (Get-Date), $sessionId
     $header | Out-File -FilePath $script:MWLogFile -Encoding UTF8
 
     $htmlHeader = @(
@@ -99,3 +99,4 @@ function Write-MWLogError {
 }
 
 Export-ModuleMember -Function Initialize-MWLogging, Write-MWLogInfo, Write-MWLogWarning, Write-MWLogError
+

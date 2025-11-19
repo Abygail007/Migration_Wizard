@@ -1,4 +1,4 @@
-# src/Features/WallpaperDesktop.psm1
+﻿# src/Features/WallpaperDesktop.psm1
 
 function Export-MWWallpaperAndIcons {
     param(
@@ -17,3 +17,4 @@ function Import-MWWallpaperAndIcons {
 }
 
 Export-ModuleMember -Function Export-MWWallpaperAndIcons, Import-MWWallpaperAndIcons
+

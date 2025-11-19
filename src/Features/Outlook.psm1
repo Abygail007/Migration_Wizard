@@ -1,4 +1,4 @@
-# src/Features/Outlook.psm1
+﻿# src/Features/Outlook.psm1
 
 function Export-MWOutlookData {
     param(
@@ -17,3 +17,4 @@ function Import-MWOutlookData {
 }
 
 Export-ModuleMember -Function Export-MWOutlookData, Import-MWOutlookData
+

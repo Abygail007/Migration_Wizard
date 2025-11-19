@@ -1,13 +1,14 @@
-# src/UI/MigrationWizard.UI.psm1
+﻿# src/UI/MigrationWizard.UI.psm1
 
 function Start-MigrationWizard {
     <#
         .SYNOPSIS
-            Point d'entrée UI de MigrationWizard.
+            Point d'entrÃ©e UI de MigrationWizard.
         .DESCRIPTION
-            Plus tard : chargement du XAML et lancement de la fenêtre WPF.
+            Plus tard : chargement du XAML et lancement de la fenÃªtre WPF.
     #>
-    Write-Host "MigrationWizard (version modulaire) - UI pas encore implémentée."
+    Write-Host "MigrationWizard (version modulaire) - UI pas encore implÃ©mentÃ©e."
 }
 
 Export-ModuleMember -Function Start-MigrationWizard
+

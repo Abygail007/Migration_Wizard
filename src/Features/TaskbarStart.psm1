@@ -1,4 +1,4 @@
-# src/Features/TaskbarStart.psm1
+﻿# src/Features/TaskbarStart.psm1
 
 function Export-MWTaskbarStartLayout {
     param(
@@ -17,3 +17,4 @@ function Import-MWTaskbarStartLayout {
 }
 
 Export-ModuleMember -Function Export-MWTaskbarStartLayout, Import-MWTaskbarStartLayout
+

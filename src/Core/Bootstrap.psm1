@@ -1,4 +1,4 @@
-# src/Core/Bootstrap.psm1
+﻿# src/Core/Bootstrap.psm1
 
 function Test-MWIsAdministrator {
     [OutputType([bool])]
@@ -15,27 +15,27 @@ function Test-MWIsAdministrator {
 
 function Confirm-MWStaThread {
     if ([System.Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') {
-        Write-Warning "MigrationWizard doit être exécuté en STA (Single Threaded Apartment)."
+        Write-Warning "MigrationWizard doit Ãªtre exÃ©cutÃ© en STA (Single Threaded Apartment)."
     }
 }
 
 function Initialize-MWEnvironment {
     <#
         .SYNOPSIS
-            Prépare l'environnement d'exécution de MigrationWizard.
+            PrÃ©pare l'environnement d'exÃ©cution de MigrationWizard.
         .DESCRIPTION
-            Vérifie la version de PowerShell, l'élévation administrateur
-            et l'état STA. Met en place une ID de session globale.
+            VÃ©rifie la version de PowerShell, l'Ã©lÃ©vation administrateur
+            et l'Ã©tat STA. Met en place une ID de session globale.
     #>
 
     if ($PSVersionTable.PSVersion.Major -lt 5) {
-        throw "MigrationWizard nécessite PowerShell 5.1 minimum."
+        throw "MigrationWizard nÃ©cessite PowerShell 5.1 minimum."
     }
 
     Confirm-MWStaThread
 
     if (-not (Test-MWIsAdministrator)) {
-        Write-Warning "MigrationWizard n'est pas lancé en tant qu'administrateur. Certaines fonctions peuvent échouer."
+        Write-Warning "MigrationWizard n'est pas lancÃ© en tant qu'administrateur. Certaines fonctions peuvent Ã©chouer."
     }
 
     if (-not $Global:MWSessionId) {
@@ -44,4 +44,5 @@ function Initialize-MWEnvironment {
 }
 
 Export-ModuleMember -Function Initialize-MWEnvironment, Test-MWIsAdministrator, Confirm-MWStaThread
+
 

@@ -1,4 +1,4 @@
-# src/Features/Browsers.psm1
+﻿# src/Features/Browsers.psm1
 
 function Export-MWBrowserData {
     param(
@@ -17,3 +17,4 @@ function Import-MWBrowserData {
 }
 
 Export-ModuleMember -Function Export-MWBrowserData, Import-MWBrowserData
+
