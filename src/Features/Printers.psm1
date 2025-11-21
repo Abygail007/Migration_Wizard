@@ -11,16 +11,16 @@ function Export-MWPrinters {
         .DESCRIPTION
             Produit :
               - Printers_List.json : liste des imprimantes (nom, driver, port, etc.)
-              - DefaultPrinter.txt : nom de l'imprimante par dÃ©faut
-              - Ports.json         : listes des ports TCP/IP
+              - DefaultPrinter.txt : nom de l'imprimante par défaut
+              - Ports.json         : liste des ports TCP/IP
     #>
 
     if (-not (Test-Path -LiteralPath $DestinationFolder)) {
         try {
             New-Item -ItemType Directory -Path $DestinationFolder -Force | Out-Null
-            Write-MWLogInfo "Dossier d'export imprimantes crÃ©Ã© : $DestinationFolder"
+            Write-MWLogInfo ("Dossier d'export imprimantes créé : {0}" -f $DestinationFolder)
         } catch {
-            Write-MWLogError "Impossible de crÃ©er le dossier d'export imprimantes '$DestinationFolder' : $_"
+            Write-MWLogError ("Impossible de créer le dossier d'export imprimantes '{0}' : {1}" -f $DestinationFolder, $_)
             throw
         }
     }
@@ -37,22 +37,22 @@ function Export-MWPrinters {
                 Type,
                 Location,
                 Comment,
-                @{Name='IsDefault';Expression={ $_.Default }}
+                @{Name = 'IsDefault'; Expression = { $_.Default }}
 
             $printersJsonPath = Join-Path $DestinationFolder 'Printers_List.json'
             $plist | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $printersJsonPath -Encoding UTF8
-            Write-MWLogInfo "Liste imprimantes exportÃ©e -> $printersJsonPath"
+            Write-MWLogInfo ("Liste imprimantes exportée -> {0}" -f $printersJsonPath)
 
             $def = ($plist | Where-Object { $_.IsDefault -eq $true } | Select-Object -First 1).Name
             if ($def) {
                 $defPath = Join-Path $DestinationFolder 'DefaultPrinter.txt'
                 $def | Set-Content -LiteralPath $defPath -Encoding UTF8
-                Write-MWLogInfo "Imprimante par dÃ©faut exportÃ©e : $def"
+                Write-MWLogInfo ("Imprimante par défaut exportée : {0}" -f $def)
             } else {
-                Write-MWLogWarning "Aucune imprimante par dÃ©faut dÃ©tectÃ©e."
+                Write-MWLogWarning "Aucune imprimante par défaut détectée."
             }
         } catch {
-            Write-MWLogError "Erreur lors de l'export de la liste des imprimantes : $_"
+            Write-MWLogError ("Erreur lors de l'export de la liste des imprimantes : {0}" -f $_)
         }
     } else {
         Write-MWLogWarning "Cmdlet Get-Printer introuvable. Impossible d'exporter la liste des imprimantes."
@@ -73,9 +73,9 @@ function Export-MWPrinters {
 
             $portsJsonPath = Join-Path $DestinationFolder 'Ports.json'
             $ports | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath $portsJsonPath -Encoding UTF8
-            Write-MWLogInfo "Ports d'imprimantes exportÃ©s -> $portsJsonPath"
+            Write-MWLogInfo ("Ports d'imprimantes exportés -> {0}" -f $portsJsonPath)
         } catch {
-            Write-MWLogError "Erreur lors de l'export des ports d'imprimantes : $_"
+            Write-MWLogError ("Erreur lors de l'export des ports d'imprimantes : {0}" -f $_)
         }
     } else {
         Write-MWLogWarning "Cmdlet Get-PrinterPort introuvable. Impossible d'exporter les ports."
@@ -91,16 +91,18 @@ function Import-MWPrinters {
         .SYNOPSIS
             Importe la configuration des imprimantes.
         .DESCRIPTION
-            RecrÃ©e les ports TCP/IP, les imprimantes et l'imprimante par dÃ©faut
-            Ã  partir des fichiers gÃ©nÃ©rÃ©s par Export-MWPrinters.
+            Recrée les ports TCP/IP, les imprimantes et l'imprimante par défaut
+            à partir des fichiers générés par Export-MWPrinters.
     #>
 
     if (-not (Test-Path -LiteralPath $SourceFolder)) {
-        Write-MWLogError "Dossier source imprimantes introuvable : $SourceFolder"
+        Write-MWLogError ("Dossier source imprimantes introuvable : {0}" -f $SourceFolder)
         return
     }
 
-    # Import des ports TCP/IP en prioritÃ©
+    #
+    # 1) Import des ports TCP/IP en priorité
+    #
     $portsJsonPath = Join-Path $SourceFolder 'Ports.json'
     if (Test-Path -LiteralPath $portsJsonPath -PathType Leaf) {
         try {
@@ -128,14 +130,19 @@ function Import-MWPrinters {
                         Write-MWLogWarning ("Création du port '{0}' échouée : {1}" -f $portName, $_)
                     }
                 } else {
-                    Write-MWLogInfo "Port déjà existant, non recréé : $portName"
+                    Write-MWLogInfo ("Port déjà existant, non recréé : {0}" -f $portName)
                 }
             }
         } catch {
-            Write-MWLogError "Erreur lors de l'import des ports d'imprimantes : $_"
+            Write-MWLogError ("Erreur lors de l'import des ports d'imprimantes : {0}" -f $_)
         }
+    } else {
+        Write-MWLogWarning "Ports.json absent - création des ports limitée."
+    }
 
-    # Import des imprimantes
+    #
+    # 2) Import des imprimantes
+    #
     $printersJsonPath = Join-Path $SourceFolder 'Printers_List.json'
     if (Test-Path -LiteralPath $printersJsonPath -PathType Leaf) {
         try {
@@ -153,18 +160,18 @@ function Import-MWPrinters {
                 $port = $pr.PortName
 
                 if (-not $name -or -not $drv -or -not $port) {
-                    Write-MWLogWarning "Imprimante ignorÃ©e (informations incomplÃ¨tes) : Name='$name', Driver='$drv', Port='$port'"
+                    Write-MWLogWarning ("Imprimante ignorée (informations incomplètes) : Name='{0}', Driver='{1}', Port='{2}'" -f $name, $drv, $port)
                     continue
                 }
 
                 if (-not (Get-PrinterPort -Name $port -ErrorAction SilentlyContinue)) {
-                    Write-MWLogWarning "Imprimante '$name' ignorÃ©e : port '$port' introuvable (WSD/USB ou partagÃ© ?)."
+                    Write-MWLogWarning ("Imprimante '{0}' ignorée : port '{1}' introuvable (WSD/USB ou partagé ?)." -f $name, $port)
                     continue
                 }
 
                 if (-not (Get-Printer -Name $name -ErrorAction SilentlyContinue)) {
                     try {
-                        Write-MWLogInfo "CrÃ©ation de l'imprimante '$name' (driver='$drv', port='$port')."
+                        Write-MWLogInfo ("Création de l'imprimante '{0}' (driver='{1}', port='{2}')." -f $name, $drv, $port)
                         Add-Printer -Name $name -DriverName $drv -PortName $port -ErrorAction Stop | Out-Null
 
                         if ($pr.Location) {
@@ -174,35 +181,34 @@ function Import-MWPrinters {
                             try { Set-Printer -Name $name -Comment $pr.Comment -ErrorAction SilentlyContinue } catch {}
                         }
                     } catch {
-                        Write-MWLogError "CrÃ©ation de l'imprimante '$name' Ã©chouÃ©e : $_"
+                        Write-MWLogError ("Création de l'imprimante '{0}' échouée : {1}" -f $name, $_)
                     }
                 } else {
-                    Write-MWLogInfo "Imprimante dÃ©jÃ  existante, non recrÃ©Ã©e : $name"
+                    Write-MWLogInfo ("Imprimante déjà existante, non recréée : {0}" -f $name)
                 }
             }
 
-            # Imprimante par dÃ©faut
+            # Imprimante par défaut
             $defPath = Join-Path $SourceFolder 'DefaultPrinter.txt'
             if (Test-Path -LiteralPath $defPath -PathType Leaf) {
                 $def = (Get-Content -LiteralPath $defPath -Raw).Trim()
                 if ($def -and (Get-Printer -Name $def -ErrorAction SilentlyContinue)) {
                     try {
                         Set-Printer -Name $def -IsDefault $true -ErrorAction Stop
-                        Write-MWLogInfo "Imprimante par dÃ©faut dÃ©finie : $def"
+                        Write-MWLogInfo ("Imprimante par défaut définie : {0}" -f $def)
                     } catch {
-                        Write-MWLogWarning "Impossible de dÃ©finir l'imprimante par dÃ©faut '$def' : $_"
+                        Write-MWLogWarning ("Impossible de définir l'imprimante par défaut '{0}' : {1}" -f $def, $_)
                     }
                 } else {
-                    Write-MWLogWarning "Imprimante par dÃ©faut '$def' introuvable aprÃ¨s import."
+                    Write-MWLogWarning ("Imprimante par défaut '{0}' introuvable après import." -f $def)
                 }
             }
         } catch {
-            Write-MWLogError "Erreur lors de l'import des imprimantes (snapshot) : $_"
+            Write-MWLogError ("Erreur lors de l'import des imprimantes (snapshot) : {0}" -f $_)
         }
     } else {
-        Write-MWLogWarning "Printers_List.json absent â€” aucune imprimante Ã  recrÃ©er."
+        Write-MWLogWarning "Printers_List.json absent - aucune imprimante à recréer."
     }
 }
 
 Export-ModuleMember -Function Export-MWPrinters, Import-MWPrinters
-
