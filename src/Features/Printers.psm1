@@ -109,28 +109,31 @@ function Import-MWPrinters {
             foreach ($p in $ports) {
                 # On se concentre sur les ports Standard TCP/IP avec une adresse IP
                 if (-not $p.PrinterHostAddress) { continue }
-                if (-not $p.PortName) { $p.PortName = $p.Name }
 
-                $portName = $p.Name
+                # Détermination du nom de port : PortName si présent, sinon Name
+                $portName = $null
+                if ($p.PSObject.Properties['PortName'] -and $p.PortName) {
+                    $portName = $p.PortName
+                } else {
+                    $portName = $p.Name
+                }
+
                 if (-not $portName) { continue }
 
                 if (-not (Get-PrinterPort -Name $portName -ErrorAction SilentlyContinue)) {
                     try {
-                        Write-MWLogInfo ("CrÃ©ation du port TCP/IP '{0}' -> {1}:{2}" -f $portName, $p.PrinterHostAddress, $p.PortNumber)
+                        Write-MWLogInfo ("Création du port TCP/IP '{0}' -> {1}:{2}" -f $portName, $p.PrinterHostAddress, $p.PortNumber)
                         Add-PrinterPort -Name $portName -PrinterHostAddress $p.PrinterHostAddress -PortNumber $p.PortNumber -ErrorAction Stop | Out-Null
                     } catch {
-                        Write-MWLogWarning ("CrÃ©ation du port '{0}' Ã©chouÃ©e : {1}" -f $portName, $_)
+                        Write-MWLogWarning ("Création du port '{0}' échouée : {1}" -f $portName, $_)
                     }
                 } else {
-                    Write-MWLogInfo "Port dÃ©jÃ  existant, non recrÃ©Ã© : $portName"
+                    Write-MWLogInfo "Port déjà existant, non recréé : $portName"
                 }
             }
         } catch {
             Write-MWLogError "Erreur lors de l'import des ports d'imprimantes : $_"
         }
-    } else {
-        Write-MWLogWarning "Ports.json absent â€” crÃ©ation des ports limitÃ©e."
-    }
 
     # Import des imprimantes
     $printersJsonPath = Join-Path $SourceFolder 'Printers_List.json'
