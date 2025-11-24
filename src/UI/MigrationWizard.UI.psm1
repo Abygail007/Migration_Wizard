@@ -12,8 +12,7 @@ function Start-MigrationWizard {
         return
     }
 
-    $uiDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
-    $xamlPath = Join-Path $uiDir 'MigrationWizard.xaml'
+    $xamlPath = Join-Path $PSScriptRoot 'MigrationWizard.xaml'
 
     if (-not (Test-Path -LiteralPath $xamlPath -PathType Leaf)) {
         Write-MWLogError ("Fichier XAML introuvable : {0}" -f $xamlPath)
