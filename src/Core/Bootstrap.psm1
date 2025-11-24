@@ -15,27 +15,27 @@ function Test-MWIsAdministrator {
 
 function Confirm-MWStaThread {
     if ([System.Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') {
-        Write-Warning "MigrationWizard doit Ãªtre exÃ©cutÃ© en STA (Single Threaded Apartment)."
+        Write-Warning "MigrationWizard doit être exécuté en STA (Single Threaded Apartment)."
     }
 }
 
 function Initialize-MWEnvironment {
     <#
         .SYNOPSIS
-            PrÃ©pare l'environnement d'exÃ©cution de MigrationWizard.
+            Prépare l'environnement d'exécution de MigrationWizard.
         .DESCRIPTION
-            VÃ©rifie la version de PowerShell, l'Ã©lÃ©vation administrateur
-            et l'Ã©tat STA. Met en place une ID de session globale.
+            Vérifie la version de PowerShell, l'élévation administrateur
+            et l'état STA. Met en place une ID de session globale.
     #>
 
     if ($PSVersionTable.PSVersion.Major -lt 5) {
-        throw "MigrationWizard nÃ©cessite PowerShell 5.1 minimum."
+        throw "MigrationWizard nécessite PowerShell 5.1 minimum."
     }
 
     Confirm-MWStaThread
 
     if (-not (Test-MWIsAdministrator)) {
-        Write-Warning "MigrationWizard n'est pas lancÃ© en tant qu'administrateur. Certaines fonctions peuvent Ã©chouer."
+        Write-Warning "MigrationWizard n'est pas lancé en tant qu'administrateur. Certaines fonctions peuvent échouer."
     }
 
     if (-not $Global:MWSessionId) {
@@ -43,6 +43,19 @@ function Initialize-MWEnvironment {
     }
 }
 
-Export-ModuleMember -Function Initialize-MWEnvironment, Test-MWIsAdministrator, Confirm-MWStaThread
+function Start-MigrationWizard {
+    [CmdletBinding()]
+    param()
 
+    Write-Verbose "Lancement de l'interface WPF MigrationWizard..."
 
+    try {
+        # La logique UI est dans src/UI/MigrationWizard.UI.psm1
+        Start-MWMigrationWizardUI
+    } catch {
+        Write-MWLogError ("Erreur lors du lancement de l'UI : {0}" -f $_.Exception.Message)
+        throw
+    }
+}
+
+Export-ModuleMember -Function Initialize-MWEnvironment, Test-MWIsAdministrator, Confirm-MWStaThread, Start-MigrationWizard
