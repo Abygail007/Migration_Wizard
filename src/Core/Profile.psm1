@@ -15,7 +15,8 @@ function Export-MWProfile {
         [bool]$IncludeOutlook        = $true,
         [bool]$IncludeWallpaper      = $true,
         [bool]$IncludeDesktopLayout  = $true,
-        [bool]$IncludeTaskbarStart   = $true
+        [bool]$IncludeTaskbarStart   = $true,
+        [bool]$IncludeUserData       = $true
     )
 
     try {
@@ -125,13 +126,24 @@ function Export-MWProfile {
             try {
                 Export-MWTaskbarStart -DestinationFolder $DestinationFolder
             } catch {
-                Write-MWLogError ("Export Taskbar/Start : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Export Taskbar/Start : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Taskbar/Start : export ignore (IncludeTaskbarStart = $false).'
+            Write-MWLogInfo "Taskbar/Start : export ignoré (IncludeTaskbarStart = `$false)."
+        }
+
+        if ($IncludeUserData) {
+            try {
+                Export-MWDataFolders -DestinationFolder $DestinationFolder
+            } catch {
+                Write-MWLogError "Export données utilisateur : $($_.Exception.Message)"
+            }
+        } else {
+            Write-MWLogInfo "Données utilisateur : export ignoré (IncludeUserData = `$false)."
         }
 
         Write-MWLogInfo "=== Fin Export-MWProfile ==="
+
     } catch {
         Write-MWLogError ("Export-MWProfile (global) : {0}" -f $_.Exception.Message)
         throw
@@ -152,7 +164,9 @@ function Import-MWProfile {
         [bool]$IncludeOutlook        = $true,
         [bool]$IncludeWallpaper      = $true,
         [bool]$IncludeDesktopLayout  = $true,
-        [bool]$IncludeTaskbarStart   = $true
+        [bool]$IncludeTaskbarStart   = $true,
+        [bool]$IncludeUserData       = $true
+
     )
 
     try {
@@ -246,13 +260,24 @@ function Import-MWProfile {
             try {
                 Import-MWTaskbarStart -SourceFolder $SourceFolder
             } catch {
-                Write-MWLogError ("Import Taskbar/Start : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Import Taskbar/Start : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Taskbar/Start : import ignore (IncludeTaskbarStart = $false).'
+            Write-MWLogInfo "Taskbar/Start : import ignoré (IncludeTaskbarStart = `$false)."
+        }
+
+        if ($IncludeUserData) {
+            try {
+                Import-MWDataFolders -SourceFolder $SourceFolder
+            } catch {
+                Write-MWLogError "Import données utilisateur : $($_.Exception.Message)"
+            }
+        } else {
+            Write-MWLogInfo "Données utilisateur : import ignoré (IncludeUserData = `$false)."
         }
 
         Write-MWLogInfo "=== Fin Import-MWProfile ==="
+
     } catch {
         Write-MWLogError ("Import-MWProfile (global) : {0}" -f $_.Exception.Message)
         throw
