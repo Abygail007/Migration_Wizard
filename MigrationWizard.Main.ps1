@@ -21,6 +21,7 @@ Import-Module (Join-Path $corePath 'Profile.psm1')     -Force -ErrorAction Stop
 
 
 # Import des Features
+Import-Module (Join-Path $featuresPath 'UserData.psm1')         -Force
 Import-Module (Join-Path $featuresPath 'Wifi.psm1')             -Force
 Import-Module (Join-Path $featuresPath 'Printers.psm1')         -Force
 Import-Module (Join-Path $featuresPath 'TaskbarStart.psm1')     -Force
@@ -29,7 +30,6 @@ Import-Module (Join-Path $featuresPath 'NetworkDrives.psm1')    -Force
 Import-Module (Join-Path $featuresPath 'RDP.psm1')              -Force
 Import-Module (Join-Path $featuresPath 'Browsers.psm1')         -Force
 Import-Module (Join-Path $featuresPath 'Outlook.psm1')          -Force
-Import-Module (Join-Path $featuresPath 'DataFolders.psm1')      -Force
 
 # Import de la couche UI
 Import-Module (Join-Path $uiPath 'MigrationWizard.UI.psm1') -Force

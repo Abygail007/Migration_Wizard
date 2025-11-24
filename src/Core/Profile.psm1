@@ -7,16 +7,17 @@ function Export-MWProfile {
         [Parameter(Mandatory = $true)]
         [string]$DestinationFolder,
 
-        [bool]$IncludeWifi           = $true,
-        [bool]$IncludePrinters       = $true,
-        [bool]$IncludeNetworkDrives  = $true,
-        [bool]$IncludeRdp            = $true,
-        [bool]$IncludeBrowsers       = $true,
-        [bool]$IncludeOutlook        = $true,
-        [bool]$IncludeWallpaper      = $true,
-        [bool]$IncludeDesktopLayout  = $true,
-        [bool]$IncludeTaskbarStart   = $true,
-        [bool]$IncludeUserData       = $true
+        [bool]$IncludeUserData      = $true,
+        [bool]$IncludeWifi          = $true,
+        [bool]$IncludePrinters      = $true,
+        [bool]$IncludeNetworkDrives = $true,
+        [bool]$IncludeRdp           = $true,
+        [bool]$IncludeBrowsers      = $true,
+        [bool]$IncludeOutlook       = $true,
+        [bool]$IncludeWallpaper     = $true,
+        [bool]$IncludeDesktopLayout = $true,
+        [bool]$IncludeTaskbarStart  = $true
+        # Plus tard : OneDrive, etc.
     )
 
     try {
@@ -24,7 +25,7 @@ function Export-MWProfile {
             New-Item -ItemType Directory -Path $DestinationFolder -Force | Out-Null
         }
 
-        # Petit fichier d'info sur l'export
+        # Petit fichier d’info sur l’export
         try {
             $info = [pscustomobject]@{
                 ComputerName = $env:COMPUTERNAME
@@ -34,118 +35,117 @@ function Export-MWProfile {
                 OsVersion    = [System.Environment]::OSVersion.VersionString
             }
 
-            $profileInfoPath = Join-Path $DestinationFolder 'ProfileInfo.json'
-            $info | ConvertTo-Json | Set-Content -Path $profileInfoPath -Encoding UTF8
+            $info | ConvertTo-Json | Set-Content -Path (Join-Path $DestinationFolder 'ProfileInfo.json') -Encoding UTF8
         } catch {
-            Write-MWLogWarning ("Export-MWProfile : impossible d'ecrire ProfileInfo.json : {0}" -f $_.Exception.Message)
+            Write-MWLogWarning "Export-MWProfile : impossible d’écrire ProfileInfo.json : $($_.Exception.Message)"
         }
 
-        Write-MWLogInfo ("=== Debut Export-MWProfile vers '{0}' ===" -f $DestinationFolder)
+        Write-MWLogInfo "=== Début Export-MWProfile vers '$DestinationFolder' ==="
+
+        # Données utilisateur (Documents, Bureau, etc.)
+        if ($IncludeUserData) {
+            try {
+                Export-MWUserData -DestinationFolder $DestinationFolder
+            } catch {
+                Write-MWLogError "Export données utilisateur : $($_.Exception.Message)"
+            }
+        } else {
+            Write-MWLogInfo "Données utilisateur : export ignoré (IncludeUserData = \$false)."
+        }
 
         if ($IncludeWifi) {
             try {
                 Export-MWWifiProfiles -DestinationFolder $DestinationFolder
             } catch {
-                Write-MWLogError ("Export Wifi : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Export Wifi : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Wifi : export ignore (IncludeWifi = $false).'
+            Write-MWLogInfo "Wifi : export ignoré (IncludeWifi = \$false)."
         }
 
         if ($IncludePrinters) {
             try {
                 Export-MWPrinters -DestinationFolder $DestinationFolder
             } catch {
-                Write-MWLogError ("Export imprimantes : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Export imprimantes : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Imprimantes : export ignore (IncludePrinters = $false).'
+            Write-MWLogInfo "Imprimantes : export ignoré (IncludePrinters = \$false)."
         }
 
         if ($IncludeNetworkDrives) {
             try {
                 Export-MWNetworkDrives -DestinationFolder $DestinationFolder
             } catch {
-                Write-MWLogError ("Export lecteurs reseau : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Export lecteurs réseau : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Lecteurs reseau : export ignore (IncludeNetworkDrives = $false).'
+            Write-MWLogInfo "Lecteurs réseau : export ignoré (IncludeNetworkDrives = \$false)."
         }
 
         if ($IncludeRdp) {
             try {
                 Export-MWRdpConnections -DestinationFolder $DestinationFolder
             } catch {
-                Write-MWLogError ("Export RDP : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Export RDP : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'RDP : export ignore (IncludeRdp = $false).'
+            Write-MWLogInfo "RDP : export ignoré (IncludeRdp = \$false)."
         }
 
         if ($IncludeBrowsers) {
             try {
                 Export-MWBrowsers -DestinationFolder $DestinationFolder
             } catch {
-                Write-MWLogError ("Export navigateurs : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Export navigateurs : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Navigateurs : export ignore (IncludeBrowsers = $false).'
+            Write-MWLogInfo "Navigateurs : export ignoré (IncludeBrowsers = \$false)."
         }
 
         if ($IncludeOutlook) {
             try {
                 Export-MWOutlookData -DestinationFolder $DestinationFolder
             } catch {
-                Write-MWLogError ("Export Outlook : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Export Outlook : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Outlook : export ignore (IncludeOutlook = $false).'
+            Write-MWLogInfo "Outlook : export ignoré (IncludeOutlook = \$false)."
         }
 
         if ($IncludeWallpaper) {
             try {
                 Export-MWWallpaper -DestinationFolder $DestinationFolder
             } catch {
-                Write-MWLogError ("Export fond ecran : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Export fond d’écran : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Fond ecran : export ignore (IncludeWallpaper = $false).'
+            Write-MWLogInfo "Fond d’écran : export ignoré (IncludeWallpaper = \$false)."
         }
 
         if ($IncludeDesktopLayout) {
             try {
                 Save-MWDesktopLayout -DestinationFolder $DestinationFolder
             } catch {
-                Write-MWLogError ("Export layout bureau : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Export layout bureau : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Layout bureau : export ignore (IncludeDesktopLayout = $false).'
+            Write-MWLogInfo "Layout bureau : export ignoré (IncludeDesktopLayout = \$false)."
         }
 
         if ($IncludeTaskbarStart) {
             try {
-                Export-MWTaskbarStart -DestinationFolder $DestinationFolder
+                Export-MWTaskbarAndStart -DestinationFolder $DestinationFolder
             } catch {
                 Write-MWLogError "Export Taskbar/Start : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo "Taskbar/Start : export ignoré (IncludeTaskbarStart = `$false)."
-        }
-
-        if ($IncludeUserData) {
-            try {
-                Export-MWDataFolders -DestinationFolder $DestinationFolder
-            } catch {
-                Write-MWLogError "Export données utilisateur : $($_.Exception.Message)"
-            }
-        } else {
-            Write-MWLogInfo "Données utilisateur : export ignoré (IncludeUserData = `$false)."
+            Write-MWLogInfo "Taskbar/Start : export ignoré (IncludeTaskbarStart = \$false)."
         }
 
         Write-MWLogInfo "=== Fin Export-MWProfile ==="
-
     } catch {
-        Write-MWLogError ("Export-MWProfile (global) : {0}" -f $_.Exception.Message)
+        Write-MWLogError "Export-MWProfile (global) : $($_.Exception.Message)"
         throw
     }
 }
@@ -156,130 +156,128 @@ function Import-MWProfile {
         [Parameter(Mandatory = $true)]
         [string]$SourceFolder,
 
-        [bool]$IncludeWifi           = $true,
-        [bool]$IncludePrinters       = $true,
-        [bool]$IncludeNetworkDrives  = $true,
-        [bool]$IncludeRdp            = $true,
-        [bool]$IncludeBrowsers       = $true,
-        [bool]$IncludeOutlook        = $true,
-        [bool]$IncludeWallpaper      = $true,
-        [bool]$IncludeDesktopLayout  = $true,
-        [bool]$IncludeTaskbarStart   = $true,
-        [bool]$IncludeUserData       = $true
-
+        [bool]$IncludeUserData      = $true,
+        [bool]$IncludeWifi          = $true,
+        [bool]$IncludePrinters      = $true,
+        [bool]$IncludeNetworkDrives = $true,
+        [bool]$IncludeRdp           = $true,
+        [bool]$IncludeBrowsers      = $true,
+        [bool]$IncludeOutlook       = $true,
+        [bool]$IncludeWallpaper     = $true,
+        [bool]$IncludeDesktopLayout = $true,
+        [bool]$IncludeTaskbarStart  = $true
     )
 
     try {
         if (-not (Test-Path -LiteralPath $SourceFolder -PathType Container)) {
-            throw ("Dossier source introuvable : {0}" -f $SourceFolder)
+            throw "Dossier source introuvable : $SourceFolder"
         }
 
-        Write-MWLogInfo ("=== Debut Import-MWProfile depuis '{0}' ===" -f $SourceFolder)
+        Write-MWLogInfo "=== Début Import-MWProfile depuis '$SourceFolder' ==="
+
+        if ($IncludeUserData) {
+            try {
+                Import-MWUserData -SourceFolder $SourceFolder
+            } catch {
+                Write-MWLogError "Import données utilisateur : $($_.Exception.Message)"
+            }
+        } else {
+            Write-MWLogInfo "Données utilisateur : import ignoré (IncludeUserData = \$false)."
+        }
 
         if ($IncludeWifi) {
             try {
                 Import-MWWifiProfiles -SourceFolder $SourceFolder
             } catch {
-                Write-MWLogError ("Import Wifi : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Import Wifi : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Wifi : import ignore (IncludeWifi = $false).'
+            Write-MWLogInfo "Wifi : import ignoré (IncludeWifi = \$false)."
         }
 
         if ($IncludePrinters) {
             try {
                 Import-MWPrinters -SourceFolder $SourceFolder
             } catch {
-                Write-MWLogError ("Import imprimantes : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Import imprimantes : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Imprimantes : import ignore (IncludePrinters = $false).'
+            Write-MWLogInfo "Imprimantes : import ignoré (IncludePrinters = \$false)."
         }
 
         if ($IncludeNetworkDrives) {
             try {
                 Import-MWNetworkDrives -SourceFolder $SourceFolder
             } catch {
-                Write-MWLogError ("Import lecteurs reseau : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Import lecteurs réseau : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Lecteurs reseau : import ignore (IncludeNetworkDrives = $false).'
+            Write-MWLogInfo "Lecteurs réseau : import ignoré (IncludeNetworkDrives = \$false)."
         }
 
         if ($IncludeRdp) {
             try {
                 Import-MWRdpConnections -SourceFolder $SourceFolder
             } catch {
-                Write-MWLogError ("Import RDP : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Import RDP : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'RDP : import ignore (IncludeRdp = $false).'
+            Write-MWLogInfo "RDP : import ignoré (IncludeRdp = \$false)."
         }
 
         if ($IncludeBrowsers) {
             try {
                 Import-MWBrowsers -SourceFolder $SourceFolder
             } catch {
-                Write-MWLogError ("Import navigateurs : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Import navigateurs : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Navigateurs : import ignore (IncludeBrowsers = $false).'
+            Write-MWLogInfo "Navigateurs : import ignoré (IncludeBrowsers = \$false)."
         }
 
         if ($IncludeOutlook) {
             try {
                 Import-MWOutlookData -SourceFolder $SourceFolder
             } catch {
-                Write-MWLogError ("Import Outlook : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Import Outlook : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Outlook : import ignore (IncludeOutlook = $false).'
+            Write-MWLogInfo "Outlook : import ignoré (IncludeOutlook = \$false)."
         }
 
         if ($IncludeWallpaper) {
             try {
                 Import-MWWallpaper -SourceFolder $SourceFolder
             } catch {
-                Write-MWLogError ("Import fond ecran : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Import fond d’écran : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Fond ecran : import ignore (IncludeWallpaper = $false).'
+            Write-MWLogInfo "Fond d’écran : import ignoré (IncludeWallpaper = \$false)."
         }
 
         if ($IncludeDesktopLayout) {
             try {
                 Restore-MWDesktopLayout -SourceFolder $SourceFolder
             } catch {
-                Write-MWLogError ("Import layout bureau : {0}" -f $_.Exception.Message)
+                Write-MWLogError "Import layout bureau : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo 'Layout bureau : import ignore (IncludeDesktopLayout = $false).'
+            Write-MWLogInfo "Layout bureau : import ignoré (IncludeDesktopLayout = \$false)."
         }
 
         if ($IncludeTaskbarStart) {
             try {
-                Import-MWTaskbarStart -SourceFolder $SourceFolder
+                Import-MWTaskbarAndStart -SourceFolder $SourceFolder
             } catch {
                 Write-MWLogError "Import Taskbar/Start : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo "Taskbar/Start : import ignoré (IncludeTaskbarStart = `$false)."
-        }
-
-        if ($IncludeUserData) {
-            try {
-                Import-MWDataFolders -SourceFolder $SourceFolder
-            } catch {
-                Write-MWLogError "Import données utilisateur : $($_.Exception.Message)"
-            }
-        } else {
-            Write-MWLogInfo "Données utilisateur : import ignoré (IncludeUserData = `$false)."
+            Write-MWLogInfo "Taskbar/Start : import ignoré (IncludeTaskbarStart = \$false)."
         }
 
         Write-MWLogInfo "=== Fin Import-MWProfile ==="
-
     } catch {
-        Write-MWLogError ("Import-MWProfile (global) : {0}" -f $_.Exception.Message)
+        Write-MWLogError "Import-MWProfile (global) : $($_.Exception.Message)"
         throw
     }
 }
