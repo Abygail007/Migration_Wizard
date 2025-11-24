@@ -1,60 +1,78 @@
-﻿<Window xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+﻿<Window x:Class="MigrationWizard.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="MigrationWizard 2.x"
-        Height="260"
-        Width="520"
-        WindowStartupLocation="CenterScreen"
-        ResizeMode="CanMinimize">
-    <Grid Margin="10">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="20"/>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-        </Grid.RowDefinitions>
+        Height="260" Width="700"
+        WindowStartupLocation="CenterScreen">
+  <Grid Margin="10">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="*"/>
+      <RowDefinition Height="Auto"/>
+      <RowDefinition Height="Auto"/>
+    </Grid.RowDefinitions>
 
-        <!-- Ligne 0 : Titre du champ dossier -->
-        <TextBlock Grid.Row="0"
-                   Text="Dossier d'export / import du profil :"
-                   FontWeight="Bold"
-                   Margin="0,0,0,5"/>
+    <!-- Ligne 1 : chemin du dossier -->
+    <TextBlock Grid.Row="0"
+               Text="Dossier d'export / import du profil :"
+               FontWeight="Bold"
+               Margin="0,0,0,5"/>
 
-        <!-- Ligne 1 : TextBox + bouton Parcourir -->
-        <StackPanel Grid.Row="1"
-                    Orientation="Horizontal">
-            <TextBox x:Name="txtFolderPath"
-                     Width="360"
-                     Margin="0,0,5,0"/>
-            <Button x:Name="btnBrowse"
-                    Content="Parcourir..."
-                    Width="100"/>
-        </StackPanel>
+    <Grid Grid.Row="1">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="*"/>
+        <ColumnDefinition Width="Auto"/>
+      </Grid.ColumnDefinitions>
 
-        <!-- Ligne 2 : petit label 'Actions' -->
-        <TextBlock Grid.Row="2"
-                   Text="Actions :"
-                   Margin="0,10,0,5"
-                   FontStyle="Italic"/>
+      <TextBox Name="tbProfileFolder"
+               Grid.Column="0"
+               Margin="0,0,5,0"/>
 
-        <!-- Ligne 3 : Boutons Export / Import -->
-        <StackPanel Grid.Row="3"
-                    Orientation="Horizontal">
-            <Button x:Name="btnExport"
-                    Content="Exporter le profil"
-                    Width="150"
-                    Margin="0,0,10,0"/>
-            <Button x:Name="btnImport"
-                    Content="Importer le profil"
-                    Width="150"/>
-        </StackPanel>
-
-        <!-- Ligne 4 : Zone de statut -->
-        <TextBlock x:Name="lblStatus"
-                   Grid.Row="4"
-                   Margin="0,10,0,0"
-                   Text="Prêt."
-                   TextWrapping="Wrap"
-                   Foreground="Gray"/>
+      <Button Name="btnBrowse"
+              Grid.Column="1"
+              Content="Parcourir..."
+              Width="90"/>
     </Grid>
+
+    <!-- Ligne 2 : options -->
+    <GroupBox Grid.Row="2"
+              Header="Éléments à inclure"
+              Margin="0,8,0,8">
+      <UniformGrid Columns="3" Margin="5">
+        <CheckBox Name="cbAll" Content="Tout cocher / décocher"/>
+
+        <CheckBox Name="cbWifi"           Content="Profils Wi-Fi"/>
+        <CheckBox Name="cbPrinters"       Content="Imprimantes"/>
+        <CheckBox Name="cbNetworkDrives"  Content="Lecteurs réseau"/>
+        <CheckBox Name="cbRdp"            Content="Connexions RDP"/>
+        <CheckBox Name="cbBrowsers"       Content="Navigateurs (AppData)"/>
+        <CheckBox Name="cbOutlook"        Content="Outlook (AppData)"/>
+        <CheckBox Name="cbWallpaper"      Content="Fond d'écran"/>
+        <CheckBox Name="cbDesktopLayout"  Content="Disposition du bureau"/>
+        <CheckBox Name="cbTaskbarStart"   Content="Barre des tâches / menu Démarrer"/>
+      </UniformGrid>
+    </GroupBox>
+
+    <!-- Ligne 3 : boutons -->
+    <StackPanel Grid.Row="3"
+                Orientation="Horizontal"
+                HorizontalAlignment="Center"
+                Margin="0,0,0,5">
+      <Button Name="btnExportProfile"
+              Content="Exporter le profil"
+              Width="140"
+              Margin="5,0"/>
+      <Button Name="btnImportProfile"
+              Content="Importer le profil"
+              Width="140"
+              Margin="5,0"/>
+    </StackPanel>
+
+    <!-- Ligne 4 : statut -->
+    <TextBlock Grid.Row="4"
+               Name="lblStatus"
+               Text="Prêt."
+               Margin="0,0,0,0"/>
+  </Grid>
 </Window>

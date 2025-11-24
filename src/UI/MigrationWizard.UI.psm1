@@ -1,135 +1,251 @@
 ﻿# src/UI/MigrationWizard.UI.psm1
-# Logique de la fenêtre WPF principale (chargement XAML + handlers)
 
-function Start-MWMigrationWizardUI {
-    <#
-        .SYNOPSIS
-            Lance la fenêtre WPF principale de MigrationWizard.
-        .DESCRIPTION
-            Charge le XAML, connecte les boutons Export/Import
-            à Export-MWProfile / Import-MWProfile, gère le choix du dossier
-            et affiche un statut simple.
-    #>
+function Start-MigrationWizard {
+    [CmdletBinding()]
+    param()
 
     try {
-        Add-Type -AssemblyName PresentationFramework -ErrorAction Stop
+        Add-Type -AssemblyName PresentationFramework, PresentationCore, WindowsBase | Out-Null
+        Add-Type -AssemblyName System.Windows.Forms | Out-Null
     } catch {
-        Write-Warning ("Impossible de charger PresentationFramework (WPF) : {0}" -f $_.Exception.Message)
+        Write-MWLogError ("Erreur chargement assemblies WPF/WinForms : {0}" -f $_.Exception.Message)
         return
     }
 
-    # Localisation du XAML à partir du chemin du module UI
-    $xamlPath = Join-Path $PSScriptRoot 'MigrationWizard.xaml'
+    $uiDir    = Split-Path -Parent $MyInvocation.MyCommand.Path
+    $xamlPath = Join-Path $uiDir 'MigrationWizard.xaml'
 
     if (-not (Test-Path -LiteralPath $xamlPath -PathType Leaf)) {
-        Write-MWLogError ("XAML introuvable : {0}" -f $xamlPath)
+        Write-MWLogError ("Fichier XAML introuvable : {0}" -f $xamlPath)
+        [System.Windows.MessageBox]::Show(
+            "Fichier UI introuvable :`n`n$xamlPath",
+            "MigrationWizard",
+            [System.Windows.MessageBoxButton]::OK,
+            [System.Windows.MessageBoxImage]::Error
+        ) | Out-Null
         return
     }
 
     try {
         $xamlContent = Get-Content -LiteralPath $xamlPath -Raw
-        [xml]$xaml = $xamlContent
-        $reader = New-Object System.Xml.XmlNodeReader $xaml
-        $window = [Windows.Markup.XamlReader]::Load($reader)
+        $stringReader = New-Object System.IO.StringReader($xamlContent)
+        $xmlReader    = [System.Xml.XmlReader]::Create($stringReader)
+        $window       = [System.Windows.Markup.XamlReader]::Load($xmlReader)
     } catch {
-        Write-MWLogError ("Erreur lors du chargement du XAML : {0}" -f $_.Exception.Message)
-        return
-    }
-
-    if (-not $window) {
-        Write-MWLogError "Impossible de créer la fenêtre WPF à partir du XAML."
+        Write-MWLogError ("Erreur chargement XAML : {0}" -f $_.Exception.Message)
+        [System.Windows.MessageBox]::Show(
+            "Erreur lors du chargement de la fenêtre UI :`n`n$($_.Exception.Message)",
+            "MigrationWizard",
+            [System.Windows.MessageBoxButton]::OK,
+            [System.Windows.MessageBoxImage]::Error
+        ) | Out-Null
         return
     }
 
     # Récupération des contrôles
-    $txtFolderPath = $window.FindName('txtFolderPath')
-    $btnBrowse     = $window.FindName('btnBrowse')
-    $btnExport     = $window.FindName('btnExport')
-    $btnImport     = $window.FindName('btnImport')
-    $lblStatus     = $window.FindName('lblStatus')
+    $tbProfileFolder   = $window.FindName('tbProfileFolder')
+    $btnBrowse         = $window.FindName('btnBrowse')
+    $btnExportProfile  = $window.FindName('btnExportProfile')
+    $btnImportProfile  = $window.FindName('btnImportProfile')
+    $lblStatus         = $window.FindName('lblStatus')
 
-    if (-not $txtFolderPath -or -not $btnBrowse -or -not $btnExport -or -not $btnImport -or -not $lblStatus) {
-        Write-MWLogWarning "Certains contrôles WPF n'ont pas été trouvés dans le XAML (vérifier les Name=...)."
-    }
+    $cbAll             = $window.FindName('cbAll')
+    $cbWifi            = $window.FindName('cbWifi')
+    $cbPrinters        = $window.FindName('cbPrinters')
+    $cbNetworkDrives   = $window.FindName('cbNetworkDrives')
+    $cbRdp             = $window.FindName('cbRdp')
+    $cbBrowsers        = $window.FindName('cbBrowsers')
+    $cbOutlook         = $window.FindName('cbOutlook')
+    $cbWallpaper       = $window.FindName('cbWallpaper')
+    $cbDesktopLayout   = $window.FindName('cbDesktopLayout')
+    $cbTaskbarStart    = $window.FindName('cbTaskbarStart')
 
-    # Petite fonction interne pour mettre à jour le statut
-    function Set-MWUiStatus {
-        param(
-            [string]$Message
-        )
-        if ($lblStatus -ne $null) {
-            $lblStatus.Text = $Message
+    $checkboxes = @(
+        $cbWifi,
+        $cbPrinters,
+        $cbNetworkDrives,
+        $cbRdp,
+        $cbBrowsers,
+        $cbOutlook,
+        $cbWallpaper,
+        $cbDesktopLayout,
+        $cbTaskbarStart,
+        $cbAll
+    ) | Where-Object { $_ -ne $null }
+
+    # Par défaut, tout coché
+    foreach ($cb in $checkboxes) {
+        if ($cb -ne $cbAll) {
+            $cb.IsChecked = $true
         }
-        Write-MWLogInfo ("UI: {0}" -f $Message)
+    }
+    if ($cbAll) { $cbAll.IsChecked = $true }
+
+    # Gestion "Tout cocher / décocher"
+    $updateAll = {
+        param($sender, $e)
+        if (-not $cbAll) { return }
+        $value = $cbAll.IsChecked
+        foreach ($cb in $checkboxes) {
+            if (($cb -ne $null) -and ($cb -ne $cbAll)) {
+                $cb.IsChecked = $value
+            }
+        }
     }
 
-    # Handler "Parcourir..."
-    if ($btnBrowse -and $txtFolderPath) {
-        $btnBrowse.Add_Click({
-            try {
-                Add-Type -AssemblyName System.Windows.Forms -ErrorAction SilentlyContinue | Out-Null
+    if ($cbAll) {
+        $null = $cbAll.Add_Checked($updateAll)
+        $null = $cbAll.Add_Unchecked($updateAll)
+    }
 
-                $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-                if ($txtFolderPath.Text -and (Test-Path -LiteralPath $txtFolderPath.Text)) {
-                    $dialog.SelectedPath = $txtFolderPath.Text
+    # Synchroniser cbAll quand on change individuellement
+    $syncAll = {
+        param($sender, $e)
+        if (-not $cbAll) { return }
+
+        $allTrue = $true
+        foreach ($cb in $checkboxes) {
+            if (($cb -ne $null) -and ($cb -ne $cbAll)) {
+                if (-not $cb.IsChecked) {
+                    $allTrue = $false
+                    break
                 }
+            }
+        }
+        $cbAll.IsChecked = $allTrue
+    }
 
-                $result = $dialog.ShowDialog()
-                if ($result -eq [System.Windows.Forms.DialogResult]::OK) {
-                    $txtFolderPath.Text = $dialog.SelectedPath
-                    Set-MWUiStatus ("Dossier sélectionné : {0}" -f $dialog.SelectedPath)
+    foreach ($cb in $checkboxes) {
+        if (($cb -ne $null) -and ($cb -ne $cbAll)) {
+            $null = $cb.Add_Checked($syncAll)
+            $null = $cb.Add_Unchecked($syncAll)
+        }
+    }
+
+    # Helper pour construire les paramètres d'Export/Import
+    $buildProfileParams = {
+        param([string]$path)
+        @{
+            IncludeWifi          = [bool]($cbWifi          -and $cbWifi.IsChecked)
+            IncludePrinters      = [bool]($cbPrinters      -and $cbPrinters.IsChecked)
+            IncludeNetworkDrives = [bool]($cbNetworkDrives -and $cbNetworkDrives.IsChecked)
+            IncludeRdp           = [bool]($cbRdp           -and $cbRdp.IsChecked)
+            IncludeBrowsers      = [bool]($cbBrowsers      -and $cbBrowsers.IsChecked)
+            IncludeOutlook       = [bool]($cbOutlook       -and $cbOutlook.IsChecked)
+            IncludeWallpaper     = [bool]($cbWallpaper     -and $cbWallpaper.IsChecked)
+            IncludeDesktopLayout = [bool]($cbDesktopLayout -and $cbDesktopLayout.IsChecked)
+            IncludeTaskbarStart  = [bool]($cbTaskbarStart  -and $cbTaskbarStart.IsChecked)
+        }
+    }
+
+    # Bouton Parcourir
+    if ($btnBrowse) {
+        $null = $btnBrowse.Add_Click({
+            param($s,$e)
+            try {
+                $dlg = New-Object System.Windows.Forms.FolderBrowserDialog
+                $dlg.Description = "Choisir le dossier d'export / import du profil"
+                $dlg.ShowNewFolderButton = $true
+
+                $initial = $tbProfileFolder.Text
+                if ([string]::IsNullOrWhiteSpace($initial)) {
+                    $initial = [System.Environment]::GetFolderPath(
+                        [System.Environment+SpecialFolder]::Desktop
+                    )
+                }
+                $dlg.SelectedPath = $initial
+
+                if ($dlg.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) {
+                    $tbProfileFolder.Text = $dlg.SelectedPath
                 }
             } catch {
-                Set-MWUiStatus ("Erreur lors de la sélection du dossier : {0}" -f $_.Exception.Message)
+                Write-MWLogError ("Erreur UI - Parcourir : {0}" -f $_.Exception.Message)
             }
         })
     }
 
-    # Handler "Exporter le profil"
-    if ($btnExport -and $txtFolderPath) {
-        $btnExport.Add_Click({
+    # Bouton Export
+    if ($btnExportProfile) {
+        $null = $btnExportProfile.Add_Click({
+            param($s,$e)
             try {
-                $path = $txtFolderPath.Text.Trim()
-                if (-not $path) {
-                    Set-MWUiStatus "Merci de sélectionner un dossier avant l'export."
+                $path = $tbProfileFolder.Text
+                if ([string]::IsNullOrWhiteSpace($path)) {
+                    [System.Windows.MessageBox]::Show(
+                        "Veuillez choisir un dossier pour l'export.",
+                        "MigrationWizard",
+                        [System.Windows.MessageBoxButton]::OK,
+                        [System.Windows.MessageBoxImage]::Warning
+                    ) | Out-Null
                     return
                 }
 
-                Set-MWUiStatus ("Export du profil vers '{0}'..." -f $path)
-                Export-MWProfile -DestinationFolder $path
-                Set-MWUiStatus "Export du profil terminé."
+                if ($lblStatus) { $lblStatus.Text = "Export en cours..." }
+
+                [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
+                try {
+                    $params = & $buildProfileParams -path $path
+                    $params.DestinationFolder = $path
+                    Export-MWProfile @params
+                    if ($lblStatus) { $lblStatus.Text = "Export terminé." }
+                } finally {
+                    [System.Windows.Input.Mouse]::OverrideCursor = $null
+                }
             } catch {
-                Set-MWUiStatus ("Erreur lors de l'export du profil : {0}" -f $_.Exception.Message)
+                if ($lblStatus) { $lblStatus.Text = "Erreur pendant l'export." }
+                Write-MWLogError ("Erreur UI - Export : {0}" -f $_.Exception.Message)
+                [System.Windows.MessageBox]::Show(
+                    "Erreur pendant l'export :`n`n$($_.Exception.Message)",
+                    "MigrationWizard",
+                    [System.Windows.MessageBoxButton]::OK,
+                    [System.Windows.MessageBoxImage]::Error
+                ) | Out-Null
             }
         })
     }
 
-    # Handler "Importer le profil"
-    if ($btnImport -and $txtFolderPath) {
-        $btnImport.Add_Click({
+    # Bouton Import
+    if ($btnImportProfile) {
+        $null = $btnImportProfile.Add_Click({
+            param($s,$e)
             try {
-                $path = $txtFolderPath.Text.Trim()
-                if (-not $path) {
-                    Set-MWUiStatus "Merci de sélectionner un dossier avant l'import."
+                $path = $tbProfileFolder.Text
+                if ([string]::IsNullOrWhiteSpace($path)) {
+                    [System.Windows.MessageBox]::Show(
+                        "Veuillez choisir un dossier pour l'import.",
+                        "MigrationWizard",
+                        [System.Windows.MessageBoxButton]::OK,
+                        [System.Windows.MessageBoxImage]::Warning
+                    ) | Out-Null
                     return
                 }
 
-                if (-not (Test-Path -LiteralPath $path -PathType Container)) {
-                    Set-MWUiStatus ("Dossier d'import introuvable : {0}" -f $path)
-                    return
-                }
+                if ($lblStatus) { $lblStatus.Text = "Import en cours..." }
 
-                Set-MWUiStatus ("Import du profil depuis '{0}'..." -f $path)
-                Import-MWProfile -SourceFolder $path
-                Set-MWUiStatus "Import du profil terminé."
+                [System.Windows.Input.Mouse]::OverrideCursor = [System.Windows.Input.Cursors]::Wait
+                try {
+                    $params = & $buildProfileParams -path $path
+                    $params.SourceFolder = $path
+                    Import-MWProfile @params
+                    if ($lblStatus) { $lblStatus.Text = "Import terminé." }
+                } finally {
+                    [System.Windows.Input.Mouse]::OverrideCursor = $null
+                }
             } catch {
-                Set-MWUiStatus ("Erreur lors de l'import du profil : {0}" -f $_.Exception.Message)
+                if ($lblStatus) { $lblStatus.Text = "Erreur pendant l'import." }
+                Write-MWLogError ("Erreur UI - Import : {0}" -f $_.Exception.Message)
+                [System.Windows.MessageBox]::Show(
+                    "Erreur pendant l'import :`n`n$($_.Exception.Message)",
+                    "MigrationWizard",
+                    [System.Windows.MessageBoxButton]::OK,
+                    [System.Windows.MessageBoxImage]::Error
+                ) | Out-Null
             }
         })
     }
 
-    # Affichage de la fenêtre
-    [void]$window.ShowDialog()
+    Write-MWLogInfo "Lancement de l'UI principale MigrationWizard."
+    $null = $window.ShowDialog()
 }
 
-Export-ModuleMember -Function Start-MWMigrationWizardUI
+Export-ModuleMember -Function Start-MigrationWizard
