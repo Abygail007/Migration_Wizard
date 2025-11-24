@@ -1,4 +1,11 @@
-﻿# MigrationWizard.Main.ps1
+﻿# Initialisation du module de logs MigrationWizard
+$modulesPath = Join-Path $PSScriptRoot 'src\Modules'
+Import-Module (Join-Path $modulesPath 'MW.Logging.psm1') -Force -DisableNameChecking
+
+Initialize-MWLogging
+Write-MWLog -Message 'Démarrage de MigrationWizard.Main.ps1.' -Level 'INFO'
+
+# MigrationWizard.Main.ps1
 # Point d'entrÃ©e principal du nouveau MigrationWizard
 
 # Assure que le script tourne depuis son propre dossier
