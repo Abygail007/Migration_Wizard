@@ -28,6 +28,7 @@ Import-Module (Join-Path $featuresPath 'NetworkDrives.psm1')    -Force
 Import-Module (Join-Path $featuresPath 'RDP.psm1')              -Force
 Import-Module (Join-Path $featuresPath 'Browsers.psm1')         -Force
 Import-Module (Join-Path $featuresPath 'Outlook.psm1')          -Force
+Import-Module (Join-Path $featuresPath 'DataFolders.psm1')      -Force
 
 # Import de la couche UI
 Import-Module (Join-Path $uiPath 'MigrationWizard.UI.psm1') -Force
