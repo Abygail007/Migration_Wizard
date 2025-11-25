@@ -673,6 +673,94 @@ function Invoke-MWApplicationsInstall {
     Install-MWApplicationsFromExport -ApplicationsToInstall $ApplicationsToInstall
 }
 
+function Show-MWApplicationsImportPlan {
+    <#
+        .SYNOPSIS
+        Affiche le plan d'import des applications dans un Out-GridView
+        et permet de lancer l'installation via RuckZuck.
+
+        .DESCRIPTION
+        - Charge le snapshot d'export (JSON)
+        - Génère le plan via Get-MWApplicationsImportPlan
+        - Ouvre un Out-GridView avec sélection multiple
+        - Installe en utilisant Install-MWApplicationsFromExport
+
+        Par défaut, on ne met pas de -WhatIf ici, c'est vraiment le
+        "mode interactif" où tu décides quoi installer.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ExportPath
+    )
+
+    if (-not (Test-Path -LiteralPath $ExportPath)) {
+        Write-MWLogSafe -Message ("Show-MWApplicationsImportPlan : fichier d'export introuvable : {0}" -f $ExportPath) -Level 'ERROR'
+        return
+    }
+
+    try {
+        $snap = Import-MWExportSnapshot -Path $ExportPath
+    }
+    catch {
+        Write-MWLogSafe -Message ("Show-MWApplicationsImportPlan : erreur lors du chargement de l'export : {0}" -f $_) -Level 'ERROR'
+        return
+    }
+
+    if (-not $snap -or -not $snap.Applications) {
+        Write-MWLogSafe -Message "Show-MWApplicationsImportPlan : aucune section Applications dans le snapshot." -Level 'WARN'
+        return
+    }
+
+    try {
+        $plan = Get-MWApplicationsImportPlan -ExportedApplications $snap.Applications
+    }
+    catch {
+        Write-MWLogSafe -Message ("Show-MWApplicationsImportPlan : erreur lors de la génération du plan : {0}" -f $_) -Level 'ERROR'
+        return
+    }
+
+    if (-not $plan -or $plan.Count -eq 0) {
+        Write-MWLogSafe -Message "Show-MWApplicationsImportPlan : aucune application manquante à proposer." -Level 'INFO'
+        return
+    }
+
+    # Affichage interactif
+    $selected = $plan |
+        Select-Object Name, Version, Publisher, RuckZuckId |
+        Out-GridView -Title "Applications à (ré)installer via RuckZuck" -PassThru
+
+    if (-not $selected) {
+        Write-MWLogSafe -Message "Show-MWApplicationsImportPlan : aucune application sélectionnée." -Level 'INFO'
+        return
+    }
+
+    # On doit retrouver les objets complets dans $plan (avec toutes propriétés)
+    $toInstall = @()
+    foreach ($sel in $selected) {
+        $name    = [string]$sel.Name
+        $version = [string]$sel.Version
+
+        $match = $plan | Where-Object {
+            $_.Name -eq $name -and $_.Version -eq $version
+        }
+
+        if ($match) {
+            $toInstall += $match
+        }
+    }
+
+    if (-not $toInstall -or $toInstall.Count -eq 0) {
+        Write-MWLogSafe -Message "Show-MWApplicationsImportPlan : rien à installer après résolution de la sélection." -Level 'INFO'
+        return
+    }
+
+    Write-MWLogSafe -Message ("Show-MWApplicationsImportPlan : installation de {0} application(s) sélectionnée(s)." -f $toInstall.Count) -Level 'INFO'
+
+    # Ici on installe réellement (pas de -WhatIf, c'est une action volontaire)
+    Install-MWApplicationsFromExport -ApplicationsToInstall $toInstall
+}
+
 Export-ModuleMember -Function `
     Get-MWInstalledApplications, `
     Get-MWApplicationsForExport, `
@@ -681,5 +769,5 @@ Export-ModuleMember -Function `
     Get-MWRuckZuckPath, `
     Find-MWRuckZuckPackageForApp, `
     Get-MWApplicationsImportPlan, `
-    Invoke-MWApplicationsInstall
-
+    Invoke-MWApplicationsInstall, `
+    Show-MWApplicationsImportPlan
