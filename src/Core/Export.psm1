@@ -36,18 +36,10 @@ function New-MWExportSnapshot {
     <#
         .SYNOPSIS
         Construit l’objet d’export MigrationWizard.
-
-        .DESCRIPTION
-        Pour l’instant :
-        - Ajoute des métadonnées (machine, utilisateur, date).
-        - Ajoute la liste des applications installées (Get-MWApplicationsForExport).
-        Plus tard, on y ajoutera :
-        - Dossiers utilisateur,
-        - Paramètres de profil,
-        - Wi-Fi, imprimantes, etc.
     #>
     param(
-        [string]$UserName = $env:USERNAME
+        [string]$UserName = $env:USERNAME,
+        [string]$SnapshotPath
     )
 
     Write-MWLogSafe -Message "Construction du snapshot d’export pour l’utilisateur $UserName." -Level 'INFO'
@@ -67,11 +59,28 @@ function New-MWExportSnapshot {
         Write-MWLogSafe -Message "Erreur lors de la récupération des applications : $_" -Level 'ERROR'
     }
 
+    # Préparation des chemins (si on connaît le chemin du snapshot)
+    $paths = $null
+    if ($SnapshotPath) {
+        $exportRoot   = Split-Path -Path $SnapshotPath -Parent
+        $appsDir      = Join-Path -Path $exportRoot -ChildPath 'Applications'
+        $userDataRoot = Join-Path -Path $exportRoot -ChildPath 'UserData'
+
+        $paths = [pscustomobject]@{
+            ExportRoot               = $exportRoot
+            SnapshotPath             = $SnapshotPath
+            ApplicationsManifestPath = (Join-Path -Path $appsDir      -ChildPath 'applications.json')
+            UserDataRoot             = $userDataRoot
+            DataFoldersManifestPath  = (Join-Path -Path $userDataRoot -ChildPath 'DataFolders.manifest.json')
+        }
+    }
+
     $snapshot = [pscustomobject]@{
-        SchemaVersion = '1.0'
+        SchemaVersion = '1.1'
         GeneratedAt   = (Get-Date).ToString('s')
         MachineName   = $env:COMPUTERNAME
         UserName      = $UserName
+        Paths         = $paths
 
         # Sections de données (pour l’instant juste Applications)
         Applications  = $apps
@@ -107,7 +116,7 @@ function Save-MWExportSnapshot {
     try {
         Write-MWLogSafe -Message "Sauvegarde du snapshot d’export vers '$Path'." -Level 'INFO'
 
-        $snapshot = New-MWExportSnapshot -UserName $UserName
+        $snapshot = New-MWExportSnapshot -UserName $UserName -SnapshotPath $Path
 
         $json = $snapshot | ConvertTo-Json -Depth 6
 
