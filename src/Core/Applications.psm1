@@ -551,10 +551,10 @@ function Install-MWApplicationsFromExport {
         Le paramètre -WhatIf permet de tester sans réellement installer.
     #>
     [CmdletBinding(SupportsShouldProcess = $true)]
-param(
-    [Parameter(Mandatory = $false)]
-    [Object[]]$ApplicationsToInstall = @()
-)
+    param(
+        [Parameter(Mandatory = $false)]
+        [Object[]]$ApplicationsToInstall = @()
+    )
 
     if (-not $ApplicationsToInstall -or $ApplicationsToInstall.Count -eq 0) {
         Write-MWLogSafe -Message "Install-MWApplicationsFromExport : aucune application à installer (liste vide)." -Level 'INFO'
@@ -572,8 +572,8 @@ param(
     foreach ($app in $ApplicationsToInstall) {
         if (-not $app) { continue }
 
-        $name    = [string]$app.Name
-        $rzId    = [string]$app.RuckZuckId
+        $name = [string]$app.Name
+        $rzId = [string]$app.RuckZuckId
 
         if ([string]::IsNullOrWhiteSpace($name)) {
             continue
@@ -607,11 +607,79 @@ param(
     }
 }
 
+function Get-MWApplicationsImportPlan {
+    <#
+        .SYNOPSIS
+        Prépare la liste des applications à proposer à l'installation
+        à partir de la section "Applications" d'un export.
+
+        .DESCRIPTION
+        Cette fonction est pensée pour être utilisée par l'UI :
+
+            $snap = Import-MWExportSnapshot -Path "..."
+            $plan = Get-MWApplicationsImportPlan -ExportedApplications $snap.Applications
+
+        Elle renvoie la liste des applications manquantes, triées,
+        avec leurs RuckZuckId éventuels.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [Object[]]$ExportedApplications
+    )
+
+    Write-MWLogSafe -Message "Get-MWApplicationsImportPlan : calcul des applications manquantes à partir de l'export." -Level 'INFO'
+
+    $missing = Get-MWMissingApplicationsFromExport -ExportedApplications $ExportedApplications
+
+    if (-not $missing -or $missing.Count -eq 0) {
+        Write-MWLogSafe -Message "Get-MWApplicationsImportPlan : aucune application à proposer à l'installation." -Level 'INFO'
+        return @()
+    }
+
+    $plan = $missing | Sort-Object Name, Version
+    return $plan
+}
+
+function Invoke-MWApplicationsInstall {
+    <#
+        .SYNOPSIS
+        Orchestration haut niveau pour l'installation des applications sélectionnées.
+
+        .DESCRIPTION
+        Pensée pour être appelée par l'UI après sélection des applis :
+
+            $plan      = Get-MWApplicationsImportPlan -ExportedApplications $snap.Applications
+            $selected  = $plan | Where-Object { $_.RuckZuckId -and $_.Install } # exemple, via l'UI
+            Invoke-MWApplicationsInstall -ApplicationsToInstall $selected -WhatIf
+
+        Le -WhatIf est supporté car la fonction interne Install-MWApplicationsFromExport
+        supporte déjà ShouldProcess.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [Object[]]$ApplicationsToInstall
+    )
+
+    if (-not $ApplicationsToInstall -or $ApplicationsToInstall.Count -eq 0) {
+        Write-MWLogSafe -Message "Invoke-MWApplicationsInstall : liste reçue vide, rien à installer." -Level 'INFO'
+        return
+    }
+
+    Write-MWLogSafe -Message ("Invoke-MWApplicationsInstall : {0} applications sélectionnées pour installation." -f $ApplicationsToInstall.Count) -Level 'INFO'
+
+    # On délègue au moteur bas niveau
+    Install-MWApplicationsFromExport -ApplicationsToInstall $ApplicationsToInstall
+}
+
 Export-ModuleMember -Function `
     Get-MWInstalledApplications, `
     Get-MWApplicationsForExport, `
     Get-MWMissingApplicationsFromExport, `
     Install-MWApplicationsFromExport, `
     Get-MWRuckZuckPath, `
-    Find-MWRuckZuckPackageForApp
+    Find-MWRuckZuckPackageForApp, `
+    Get-MWApplicationsImportPlan, `
+    Invoke-MWApplicationsInstall
 
