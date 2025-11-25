@@ -188,54 +188,117 @@ function Get-MWRuckZuckPath {
         Tente de localiser rzget.exe (RuckZuck) sur le poste.
 
         .DESCRIPTION
-        On regarde à plusieurs endroits :
-        - Racine du projet (à côté de MigrationWizard.Main.ps1)
-        - Dossier Tools\ à la racine
-        - Dossier du script courant (utile plus tard si compilé)
+        Objectif : que ça marche depuis n'importe quel chemin.
+        On ne dépend JAMAIS du répertoire courant, uniquement
+        de l'endroit où se trouve :
+
+        - le script / module (PSScriptRoot)
+        - OU l'exécutable compilé (PS2EXE)
+
+        On vérifie, dans cet ordre :
+
+        1) Dossier de l'exécutable (si on est compilé) :
+           <exeDir>\rzget.exe
+
+        2) Dossier du script / module :
+           <PSScriptRoot>\rzget.exe
+           <PSScriptRoot>\Tools\rzget.exe
+
+        3) Mode "dev" (ton repo Git) :
+           <repoRoot>\Tools\rzget.exe
+           <repoRoot>\rzget.exe
     #>
     [CmdletBinding()]
     param()
 
     $candidates = @()
 
+    # 1) Cas EXE compilé (PS2EXE) : dossier de l'exe courant
     try {
-        # PSScriptRoot = ...\src\Core
-        $srcRoot  = Split-Path -Parent $PSScriptRoot
-        $repoRoot = Split-Path -Parent $srcRoot  # racine du projet
+        $proc     = [System.Diagnostics.Process]::GetCurrentProcess()
+        $exePath  = $proc.MainModule.FileName
+        $exeDir   = Split-Path -Parent $exePath
 
-        $candidates += (Join-Path $repoRoot 'rzget.exe')
-        $candidates += (Join-Path (Join-Path $repoRoot 'Tools') 'rzget.exe')
+        if ($exeDir -and (Test-Path -LiteralPath $exeDir -PathType Container)) {
+            # rzget.exe à côté du .exe => scénario production
+            $candidates += (Join-Path $exeDir 'rzget.exe')
+        }
     }
     catch {
-        # On ne bloque pas si erreur
+        # Si on n'arrive pas à déterminer l'exe, on continue avec les autres pistes
     }
 
+    # 2) Dossier du script / module (PSScriptRoot)
     try {
-        if ($MyInvocation.PSCommandPath) {
-            $scriptDir = Split-Path -Parent $MyInvocation.PSCommandPath
-            $candidates += (Join-Path $scriptDir 'rzget.exe')
+        if ($PSScriptRoot -and (Test-Path -LiteralPath $PSScriptRoot -PathType Container)) {
+            # rzget.exe directement dans le même dossier que le script / module
+            $candidates += (Join-Path $PSScriptRoot 'rzget.exe')
+
+            # rzget.exe dans un sous-dossier Tools\
+            $candidates += (Join-Path $PSScriptRoot 'Tools\rzget.exe')
         }
     }
     catch {
     }
 
+    # 3) Mode "dev" : arborescence du repo Git
+    try {
+        # Si PSScriptRoot = ...\Github\src\Core
+        # alors srcRoot = ...\Github\src
+        # et repoRoot  = ...\Github
+        $srcRoot  = $null
+        $repoRoot = $null
+
+        if ($PSScriptRoot) {
+            $srcRoot  = Split-Path -Parent $PSScriptRoot
+            if ($srcRoot) {
+                $repoRoot = Split-Path -Parent $srcRoot
+            }
+        }
+
+        if ($repoRoot -and (Test-Path -LiteralPath $repoRoot -PathType Container)) {
+            $candidates += (Join-Path $repoRoot 'Tools\rzget.exe')
+            $candidates += (Join-Path $repoRoot 'rzget.exe')
+        }
+    }
+    catch {
+        # On ne bloque pas si on ne parvient pas à remonter l'arbo
+    }
+
+    # Nettoyage des candidats : fichiers existants uniquement
     $candidates = $candidates |
-        Where-Object { $_ -and (Test-Path -LiteralPath $_) } |
+        Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } |
         Select-Object -Unique
 
     if (-not $candidates -or $candidates.Count -eq 0) {
-        Write-MWLogSafe -Message "Get-MWRuckZuckPath : rzget.exe introuvable." -Level 'DEBUG'
+        Write-MWLogSafe -Message "Get-MWRuckZuckPath : rzget.exe introuvable dans les emplacements prévus." -Level 'DEBUG'
         return $null
     }
 
-    if ($candidates.Count -gt 1) {
-        Write-MWLogSafe -Message ("Get-MWRuckZuckPath : plusieurs rzget.exe trouvés, utilisation de : {0}" -f $candidates[0]) -Level 'WARN'
-    }
-    else {
-        Write-MWLogSafe -Message ("Get-MWRuckZuckPath : rzget.exe détecté à l'emplacement : {0}" -f $candidates[0]) -Level 'INFO'
+    # On résout en chemins complets propres
+    $resolved = @()
+    foreach ($c in $candidates) {
+        try {
+            $resolved += (Get-Item -LiteralPath $c).FullName
+        }
+        catch {
+            $resolved += $c
+        }
     }
 
-    return $candidates[0]
+    # On force toujours un tableau, même s'il n'y a qu'un seul élément
+    $resolved = @($resolved | Select-Object -Unique)
+
+    $chosen = $resolved[0]
+
+    if ($resolved.Count -gt 1) {
+        Write-MWLogSafe -Message ("Get-MWRuckZuckPath : plusieurs rzget.exe trouvés, utilisation de : {0}" -f $chosen) -Level 'WARN'
+    }
+    else {
+        Write-MWLogSafe -Message ("Get-MWRuckZuckPath : rzget.exe détecté à l'emplacement : {0}" -f $chosen) -Level 'INFO'
+    }
+
+    return $chosen
 }
 
 function Find-MWRuckZuckPackageForApp {
@@ -463,7 +526,92 @@ function Get-MWMissingApplicationsFromExport {
     return $missing
 }
 
+function Install-MWApplicationsFromExport {
+    <#
+        .SYNOPSIS
+        Installe une liste d'applications à partir des données d'export MigrationWizard.
+
+        .DESCRIPTION
+        Cette fonction attend une liste d'objets applicatifs contenant
+        au minimum :
+        - Name
+        - RuckZuckId (Shortname RuckZuck)
+
+        Elle ne tente d'installer que les applications qui ont un RuckZuckId
+        non vide, en utilisant RZGet.exe :
+
+            RZGet.exe install "<Shortname>"
+
+        Utilisation typique :
+
+            $missing = Get-MWMissingApplicationsFromExport -ExportedApplications $snap.Applications
+            $toInstall = $missing | Where-Object { $_.RuckZuckId }
+            Install-MWApplicationsFromExport -ApplicationsToInstall $toInstall -WhatIf
+
+        Le paramètre -WhatIf permet de tester sans réellement installer.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true)]
+param(
+    [Parameter(Mandatory = $false)]
+    [Object[]]$ApplicationsToInstall = @()
+)
+
+    if (-not $ApplicationsToInstall -or $ApplicationsToInstall.Count -eq 0) {
+        Write-MWLogSafe -Message "Install-MWApplicationsFromExport : aucune application à installer (liste vide)." -Level 'INFO'
+        return
+    }
+
+    Write-MWLogSafe -Message ("Install-MWApplicationsFromExport : lancement pour {0} applications." -f $ApplicationsToInstall.Count) -Level 'INFO'
+
+    $rzPath = Get-MWRuckZuckPath
+    if (-not $rzPath) {
+        Write-MWLogSafe -Message "Install-MWApplicationsFromExport : RuckZuck (rzget.exe) introuvable, installation impossible." -Level 'ERROR'
+        return
+    }
+
+    foreach ($app in $ApplicationsToInstall) {
+        if (-not $app) { continue }
+
+        $name    = [string]$app.Name
+        $rzId    = [string]$app.RuckZuckId
+
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            continue
+        }
+
+        if ([string]::IsNullOrWhiteSpace($rzId)) {
+            Write-MWLogSafe -Message ("Install-MWApplicationsFromExport : aucun RuckZuckId pour ""{0}"", on ignore." -f $name) -Level 'WARN'
+            continue
+        }
+
+        $target = ('{0} (RuckZuckId = {1})' -f $name, $rzId)
+
+        if ($PSCmdlet.ShouldProcess($target, "Installation via RuckZuck")) {
+            Write-MWLogSafe -Message ("Install-MWApplicationsFromExport : installation de ""{0}"" via RuckZuck ({1})." -f $name, $rzId) -Level 'INFO'
+
+            try {
+                & $rzPath 'install' $rzId
+                $exitCode = $LASTEXITCODE
+
+                if ($exitCode -eq 0) {
+                    Write-MWLogSafe -Message ("Install-MWApplicationsFromExport : installation OK pour ""{0}"" (code {1})." -f $name, $exitCode) -Level 'INFO'
+                }
+                else {
+                    Write-MWLogSafe -Message ("Install-MWApplicationsFromExport : installation échouée pour ""{0}"" (code {1})." -f $name, $exitCode) -Level 'ERROR'
+                }
+            }
+            catch {
+                Write-MWLogSafe -Message ("Install-MWApplicationsFromExport : exception lors de l'installation de ""{0}"" ({1}) : {2}" -f $name, $rzId, $_) -Level 'ERROR'
+            }
+        }
+    }
+}
+
 Export-ModuleMember -Function `
     Get-MWInstalledApplications, `
     Get-MWApplicationsForExport, `
-    Get-MWMissingApplicationsFromExport
+    Get-MWMissingApplicationsFromExport, `
+    Install-MWApplicationsFromExport, `
+    Get-MWRuckZuckPath, `
+    Find-MWRuckZuckPackageForApp
+
