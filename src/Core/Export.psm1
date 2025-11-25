@@ -126,4 +126,36 @@ function Save-MWExportSnapshot {
     }
 }
 
-Export-ModuleMember -Function New-MWExportSnapshot, Save-MWExportSnapshot
+function Import-MWExportSnapshot {
+    <#
+        .SYNOPSIS
+        Charge un snapshot d’export MigrationWizard depuis un fichier JSON.
+
+        .PARAMETER Path
+        Chemin du fichier JSON d’export.
+    #>
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    Write-MWLogSafe -Message "Chargement du snapshot d’export depuis '$Path'." -Level 'INFO'
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        Write-MWLogSafe -Message "Fichier d’export introuvable : $Path" -Level 'ERROR'
+        throw "Fichier d’export introuvable : $Path"
+    }
+
+    try {
+        $json = Get-Content -LiteralPath $Path -Raw -ErrorAction Stop
+        $snapshot = $json | ConvertFrom-Json
+    }
+    catch {
+        Write-MWLogSafe -Message "Erreur lors du parsing JSON de l’export : $_" -Level 'ERROR'
+        throw
+    }
+
+    return $snapshot
+}
+
+Export-ModuleMember -Function New-MWExportSnapshot, Save-MWExportSnapshot, Import-MWExportSnapshot

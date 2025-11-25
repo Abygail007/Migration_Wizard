@@ -8,3 +8,6 @@ Logs/
 # Divers fichiers temporaires
 *.tmp
 *.bak
+
+# Outils locaux (ex: RuckZuck) non versionnés
+Tools/
