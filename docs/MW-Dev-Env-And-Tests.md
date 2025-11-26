@@ -726,4 +726,19 @@ Import-MWProfile `
 
 
 
+## 6. Mode CLI (sans UI) – Export / Import direct
+
+En plus de l'interface graphique, MigrationWizard peut être lancé en **mode ligne de commande**  
+pour faire un export ou un import complet sans ouvrir la WPF.
+
+### 6.1. Export simple
+
+```powershell
+cd "C:\Users\jmthomas\Documents\Creation\MigrationWizard\Github"
+
+.\MigrationWizard.Main.ps1 -ExportPath "C:\Temp\MigrationTestCLI"
+
+
+
+
 
