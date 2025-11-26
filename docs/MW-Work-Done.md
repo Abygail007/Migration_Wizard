@@ -825,7 +825,24 @@ Résultat :
 
 
 
-Un fichier séparé décrira \*\*tout ce qu’il reste à faire\*\* (roadmap détaillée, par module).
+
+NOUVEAU :
+
+```markdown
+## 6. UI WPF – Options UserData / DataFolders
+
+- Ajout de deux cases à cocher dans `MigrationWizard.xaml` :
+  - `cbUserData` : permet d’activer / désactiver l’export et l’import des données utilisateur (`IncludeUserData` dans `Export-MWProfile` / `Import-MWProfile`).
+  - `cbUseDataFoldersManifest` : active le mode avancé DataFolders (`UseDataFoldersManifest`) qui déclenche :
+    - `Show-MWDataFoldersExportPlan` pour l’export (sélection interactive des dossiers),
+    - `Show-MWDataFoldersImportPlan` pour l’import (vue des chemins source -> cible avant restauration).
+
+- `MigrationWizard.UI.psm1` construit maintenant les paramètres d’export / import via `$buildProfileParams` en incluant ces deux flags, en plus des options Wifi / Imprimantes / RDP / Navigateurs / Outlook / Wallpaper / Layout / Taskbar.
+
+Un fichier séparé décrira **tout ce qu’il reste à faire** (roadmap détaillée, par module).
+
+---
+
 
 
 

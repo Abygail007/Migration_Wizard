@@ -49,6 +49,8 @@ function Start-MigrationWizard {
     $lblStatus         = $window.FindName('lblStatus')
 
     $cbAll             = $window.FindName('cbAll')
+    $cbUserData        = $window.FindName('cbUserData')
+    $cbUseDataFolders  = $window.FindName('cbUseDataFoldersManifest')
     $cbWifi            = $window.FindName('cbWifi')
     $cbPrinters        = $window.FindName('cbPrinters')
     $cbNetworkDrives   = $window.FindName('cbNetworkDrives')
@@ -60,6 +62,8 @@ function Start-MigrationWizard {
     $cbTaskbarStart    = $window.FindName('cbTaskbarStart')
 
     $checkboxes = @(
+        $cbUserData,
+        $cbUseDataFolders,
         $cbWifi,
         $cbPrinters,
         $cbNetworkDrives,
@@ -71,6 +75,7 @@ function Start-MigrationWizard {
         $cbTaskbarStart,
         $cbAll
     ) | Where-Object { $_ -ne $null }
+
 
     # Par défaut, tout coché
     foreach ($cb in $checkboxes) {
@@ -125,15 +130,18 @@ function Start-MigrationWizard {
     $buildProfileParams = {
         param([string]$path)
         @{
-            IncludeWifi          = [bool]($cbWifi          -and $cbWifi.IsChecked)
-            IncludePrinters      = [bool]($cbPrinters      -and $cbPrinters.IsChecked)
-            IncludeNetworkDrives = [bool]($cbNetworkDrives -and $cbNetworkDrives.IsChecked)
-            IncludeRdp           = [bool]($cbRdp           -and $cbRdp.IsChecked)
-            IncludeBrowsers      = [bool]($cbBrowsers      -and $cbBrowsers.IsChecked)
-            IncludeOutlook       = [bool]($cbOutlook       -and $cbOutlook.IsChecked)
-            IncludeWallpaper     = [bool]($cbWallpaper     -and $cbWallpaper.IsChecked)
-            IncludeDesktopLayout = [bool]($cbDesktopLayout -and $cbDesktopLayout.IsChecked)
-            IncludeTaskbarStart  = [bool]($cbTaskbarStart  -and $cbTaskbarStart.IsChecked)
+            IncludeUserData        = [bool]($cbUserData       -and $cbUserData.IsChecked)
+            UseDataFoldersManifest = [bool]($cbUseDataFolders -and $cbUseDataFolders.IsChecked)
+
+            IncludeWifi            = [bool]($cbWifi           -and $cbWifi.IsChecked)
+            IncludePrinters        = [bool]($cbPrinters       -and $cbPrinters.IsChecked)
+            IncludeNetworkDrives   = [bool]($cbNetworkDrives  -and $cbNetworkDrives.IsChecked)
+            IncludeRdp             = [bool]($cbRdp            -and $cbRdp.IsChecked)
+            IncludeBrowsers        = [bool]($cbBrowsers       -and $cbBrowsers.IsChecked)
+            IncludeOutlook         = [bool]($cbOutlook        -and $cbOutlook.IsChecked)
+            IncludeWallpaper       = [bool]($cbWallpaper      -and $cbWallpaper.IsChecked)
+            IncludeDesktopLayout   = [bool]($cbDesktopLayout  -and $cbDesktopLayout.IsChecked)
+            IncludeTaskbarStart    = [bool]($cbTaskbarStart   -and $cbTaskbarStart.IsChecked)
         }
     }
 

@@ -42,6 +42,11 @@
       <UniformGrid Columns="3" Margin="5">
         <CheckBox Name="cbAll" Content="Tout cocher / décocher"/>
 
+        <CheckBox Name="cbUserData"
+                  Content="Données utilisateur (Documents / Bureau…)"/>
+        <CheckBox Name="cbUseDataFoldersManifest"
+                  Content="Mode avancé dossiers (DataFolders)"/>
+
         <CheckBox Name="cbWifi"           Content="Profils Wi-Fi"/>
         <CheckBox Name="cbPrinters"       Content="Imprimantes"/>
         <CheckBox Name="cbNetworkDrives"  Content="Lecteurs réseau"/>
@@ -53,6 +58,7 @@
         <CheckBox Name="cbTaskbarStart"   Content="Barre des tâches / menu Démarrer"/>
       </UniformGrid>
     </GroupBox>
+
 
     <!-- Ligne 3 : boutons -->
     <StackPanel Grid.Row="3"
