@@ -7,16 +7,17 @@ function Export-MWProfile {
         [Parameter(Mandatory = $true)]
         [string]$DestinationFolder,
 
-        [bool]$IncludeUserData      = $true,
-        [bool]$IncludeWifi          = $true,
-        [bool]$IncludePrinters      = $true,
-        [bool]$IncludeNetworkDrives = $true,
-        [bool]$IncludeRdp           = $true,
-        [bool]$IncludeBrowsers      = $true,
-        [bool]$IncludeOutlook       = $true,
-        [bool]$IncludeWallpaper     = $true,
-        [bool]$IncludeDesktopLayout = $true,
-        [bool]$IncludeTaskbarStart  = $true
+        [bool]$IncludeUserData           = $true,
+        [bool]$IncludeWifi               = $true,
+        [bool]$IncludePrinters           = $true,
+        [bool]$IncludeNetworkDrives      = $true,
+        [bool]$IncludeRdp                = $true,
+        [bool]$IncludeBrowsers           = $true,
+        [bool]$IncludeOutlook            = $true,
+        [bool]$IncludeWallpaper          = $true,
+        [bool]$IncludeDesktopLayout      = $true,
+        [bool]$IncludeTaskbarStart       = $true,
+        [bool]$UseDataFoldersManifest    = $false
         # Plus tard : OneDrive, etc.
     )
 
@@ -45,12 +46,27 @@ function Export-MWProfile {
         # Données utilisateur (Documents, Bureau, etc.)
         if ($IncludeUserData) {
             try {
-                Export-MWUserData -DestinationFolder $DestinationFolder
+                if ($UseDataFoldersManifest) {
+                    # Dossier racine des données utilisateur dans l'export
+                    $profileDestRoot = Join-Path $DestinationFolder 'Profile'
+
+                    # Emplacement du manifest DataFolders pour cet export
+                    $manifestPath = Join-Path $DestinationFolder 'DataFolders.manifest.json'
+
+                    Write-MWLogInfo ("Export-MWProfile : mode avancé DataFolders activé. Manifest = '{0}', DestinationRoot = '{1}'" -f $manifestPath, $profileDestRoot)
+
+                    # Mode interactif : Out-GridView pour choisir les dossiers, puis export réel
+                    Show-MWDataFoldersExportPlan -ManifestPath $manifestPath -DestinationRoot $profileDestRoot
+                }
+                else {
+                    # Comportement historique : export brut des dossiers "classiques"
+                    Export-MWUserData -DestinationFolder $DestinationFolder
+                }
             } catch {
                 Write-MWLogError "Export données utilisateur : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo "Données utilisateur : export ignoré (IncludeUserData = \$false)."
+            Write-MWLogInfo "Données utilisateur : export ignoré (IncludeUserData = `$false)."
         }
 
         if ($IncludeWifi) {
@@ -156,16 +172,17 @@ function Import-MWProfile {
         [Parameter(Mandatory = $true)]
         [string]$SourceFolder,
 
-        [bool]$IncludeUserData      = $true,
-        [bool]$IncludeWifi          = $true,
-        [bool]$IncludePrinters      = $true,
-        [bool]$IncludeNetworkDrives = $true,
-        [bool]$IncludeRdp           = $true,
-        [bool]$IncludeBrowsers      = $true,
-        [bool]$IncludeOutlook       = $true,
-        [bool]$IncludeWallpaper     = $true,
-        [bool]$IncludeDesktopLayout = $true,
-        [bool]$IncludeTaskbarStart  = $true
+        [bool]$IncludeUserData           = $true,
+        [bool]$IncludeWifi               = $true,
+        [bool]$IncludePrinters           = $true,
+        [bool]$IncludeNetworkDrives      = $true,
+        [bool]$IncludeRdp                = $true,
+        [bool]$IncludeBrowsers           = $true,
+        [bool]$IncludeOutlook            = $true,
+        [bool]$IncludeWallpaper          = $true,
+        [bool]$IncludeDesktopLayout      = $true,
+        [bool]$IncludeTaskbarStart       = $true,
+        [bool]$UseDataFoldersManifest    = $false
     )
 
     try {
@@ -177,12 +194,29 @@ function Import-MWProfile {
 
         if ($IncludeUserData) {
             try {
-                Import-MWUserData -SourceFolder $SourceFolder
+                if ($UseDataFoldersManifest) {
+                    # Manifest DataFolders produit lors de l’export
+                    $manifestPath      = Join-Path $SourceFolder 'DataFolders.manifest.json'
+                    # Les données exportées sont sous "Profile" (voir Export-MWProfile)
+                    $profileSourceRoot = Join-Path $SourceFolder 'Profile'
+
+                    Write-MWLogInfo (
+                        "Import-MWProfile : mode avancé DataFolders activé. Manifest = '{0}', SourceRoot = '{1}'" -f `
+                        $manifestPath, $profileSourceRoot
+                    )
+
+                    # Mode interactif : vue des dossiers (source -> cible) puis import réel
+                    Show-MWDataFoldersImportPlan -ManifestPath $manifestPath -SourceRoot $profileSourceRoot
+                }
+                else {
+                    # Comportement historique
+                    Import-MWUserData -SourceFolder $SourceFolder
+                }
             } catch {
                 Write-MWLogError "Import données utilisateur : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo "Données utilisateur : import ignoré (IncludeUserData = \$false)."
+            Write-MWLogInfo "Données utilisateur : import ignoré (IncludeUserData = `$false)."
         }
 
         if ($IncludeWifi) {

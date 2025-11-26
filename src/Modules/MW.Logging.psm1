@@ -86,4 +86,51 @@ function Write-MWLog {
     }
 }
 
-Export-ModuleMember -Function Initialize-MWLogging, Write-MWLog, Get-MWLogsDirectory
+function Write-MWLogInfo {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    Write-MWLog -Message $Message -Level 'INFO'
+}
+
+function Write-MWLogWarning {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    Write-MWLog -Message $Message -Level 'WARN'
+}
+
+function Write-MWLogError {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    Write-MWLog -Message $Message -Level 'ERROR'
+}
+
+function Write-MWLogDebug {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Message
+    )
+
+    Write-MWLog -Message $Message -Level 'DEBUG'
+}
+
+Export-ModuleMember -Function `
+    Initialize-MWLogging, `
+    Write-MWLog, `
+    Write-MWLogInfo, `
+    Write-MWLogWarning, `
+    Write-MWLogError, `
+    Write-MWLogDebug, `
+    Get-MWLogsDirectory

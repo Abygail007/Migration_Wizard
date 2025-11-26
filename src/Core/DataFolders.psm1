@@ -538,10 +538,145 @@ function Show-MWDataFoldersExportPlan {
     Export-MWDataFolders -ManifestPath $ManifestPath -DestinationRoot $DestinationRoot
 }
 
+function Show-MWDataFoldersImportPlan {
+    <#
+        .SYNOPSIS
+        Affiche la liste des dossiers utilisateur à importer
+        et lance l'import après sélection.
+
+        .DESCRIPTION
+        - Charge le manifest d'export.
+        - Recalcule les chemins cibles pour le profil courant.
+        - Affiche une grille avec SourcePath (dans UserData) et TargetPath.
+        - Met à jour Include selon la sélection.
+        - Sauvegarde le manifest puis appelle Import-MWDataFolders.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ManifestPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SourceRoot
+    )
+
+    Write-MWLogSafe -Message ("Show-MWDataFoldersImportPlan : préparation de l'import depuis '{0}' avec manifest '{1}'." -f $SourceRoot, $ManifestPath) -Level 'INFO'
+
+    if (-not (Test-Path -LiteralPath $SourceRoot)) {
+        Write-MWLogSafe -Message ("Show-MWDataFoldersImportPlan : SourceRoot introuvable : {0}" -f $SourceRoot) -Level 'ERROR'
+        return
+    }
+
+    $items = Get-MWDataFoldersManifest -ManifestPath $ManifestPath
+    if (-not $items -or $items.Count -eq 0) {
+        Write-MWLogSafe -Message "Show-MWDataFoldersImportPlan : manifest vide, rien à proposer." -Level 'WARN'
+        return
+    }
+
+    # Dossiers cibles pour le profil courant
+    $targetManifest = New-MWDataFoldersManifest
+    $targetsByKey   = @{}
+
+    foreach ($t in $targetManifest) {
+        if (-not $t) { continue }
+
+        $k = [string]$t.Key
+        $p = [string]$t.SourcePath
+
+        if ([string]::IsNullOrWhiteSpace($k) -or [string]::IsNullOrWhiteSpace($p)) {
+            continue
+        }
+
+        $targetsByKey[$k] = $p
+    }
+
+    # Objets pour la grille
+    $gridItems = @()
+
+    foreach ($item in $items) {
+        if (-not $item) { continue }
+
+        $key   = [string]$item.Key
+        $rel   = [string]$item.RelativePath
+        $incl  = $true
+
+        if ($item.PSObject.Properties.Name -contains 'Include') {
+            $incl = [bool]$item.Include
+        }
+
+        $srcPath = $null
+        if (-not [string]::IsNullOrWhiteSpace($rel)) {
+            try {
+                $srcPath = Join-Path -Path $SourceRoot -ChildPath $rel
+            }
+            catch {
+                $srcPath = $null
+            }
+        }
+
+        $srcExists = $false
+        if ($srcPath -and (Test-Path -LiteralPath $srcPath -PathType Container)) {
+            $srcExists = $true
+        }
+
+        $targetPath = $null
+        if ($targetsByKey.ContainsKey($key)) {
+            $targetPath = [string]$targetsByKey[$key]
+        }
+
+        $gridItems += [pscustomobject]@{
+            Key          = $key
+            Label        = [string]$item.Label
+            SourcePath   = $srcPath
+            TargetPath   = $targetPath
+            SourceExists = $srcExists
+            Include      = $incl
+        }
+    }
+
+    if (-not $gridItems -or $gridItems.Count -eq 0) {
+        Write-MWLogSafe -Message "Show-MWDataFoldersImportPlan : aucun élément à afficher." -Level 'WARN'
+        return
+    }
+
+    $selected = $gridItems |
+        Out-GridView -Title "Dossiers à importer (sélectionne ceux à inclure)" -PassThru
+
+    if (-not $selected) {
+        Write-MWLogSafe -Message "Show-MWDataFoldersImportPlan : aucune sélection effectuée." -Level 'INFO'
+        return
+    }
+
+    $selectedKeys = @($selected | ForEach-Object { [string]$_.Key })
+
+    foreach ($item in $items) {
+        if (-not $item) { continue }
+
+        $k = [string]$item.Key
+        $item.Include = $selectedKeys -contains $k
+    }
+
+    # Sauvegarde du manifest mis à jour
+    try {
+        $json = $items | ConvertTo-Json -Depth 5
+        $json | Set-Content -LiteralPath $ManifestPath -Encoding UTF8
+        Write-MWLogSafe -Message "Show-MWDataFoldersImportPlan : manifest mis à jour avec la sélection utilisateur." -Level 'INFO'
+    }
+    catch {
+        Write-MWLogSafe -Message ("Show-MWDataFoldersImportPlan : erreur lors de l'enregistrement du manifest : {0}" -f $_) -Level 'ERROR'
+        return
+    }
+
+    # Lancement de l'import réel
+    Write-MWLogSafe -Message "Show-MWDataFoldersImportPlan : lancement de Import-MWDataFolders avec le manifest sélectionné." -Level 'INFO'
+    Import-MWDataFolders -ManifestPath $ManifestPath -SourceRoot $SourceRoot
+}
+
 Export-ModuleMember -Function `
     Get-MWDefaultDataFolders, `
     Save-MWDataFoldersManifest, `
     Get-MWDataFoldersManifest, `
     Export-MWDataFolders, `
     Import-MWDataFolders, `
-    Show-MWDataFoldersExportPlan
+    Show-MWDataFoldersExportPlan, `
+    Show-MWDataFoldersImportPlan
