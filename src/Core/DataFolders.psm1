@@ -192,7 +192,356 @@ function Save-MWDataFoldersManifest {
     }
 }
 
+function Get-MWDataFoldersManifest {
+    <#
+        .SYNOPSIS
+        Charge le manifeste des dossiers utilisateur (JSON) et le renvoie sous forme d’objets.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ManifestPath
+    )
+
+    Write-MWLogSafe -Message ("Get-MWDataFoldersManifest : chargement du manifeste '{0}'." -f $ManifestPath) -Level 'INFO'
+
+    if (-not (Test-Path -LiteralPath $ManifestPath)) {
+        Write-MWLogSafe -Message ("Get-MWDataFoldersManifest : fichier introuvable : {0}" -f $ManifestPath) -Level 'WARN'
+        return @()
+    }
+
+    try {
+        $json   = Get-Content -LiteralPath $ManifestPath -Raw -ErrorAction Stop
+        $items  = $json | ConvertFrom-Json
+    }
+    catch {
+        Write-MWLogSafe -Message ("Get-MWDataFoldersManifest : erreur lors du parsing JSON : {0}" -f $_) -Level 'ERROR'
+        return @()
+    }
+
+    if (-not $items) {
+        return @()
+    }
+
+    if ($items -isnot [System.Collections.IEnumerable] -or $items -is [string]) {
+        $items = @($items)
+    }
+
+    return $items
+}
+
+function Export-MWDataFolders {
+    <#
+        .SYNOPSIS
+        Exporte les dossiers utilisateur définis dans le manifeste vers un répertoire d’export.
+
+        .PARAMETER ManifestPath
+        Chemin du fichier DataFolders.manifest.json.
+
+        .PARAMETER DestinationRoot
+        Répertoire racine d’export (ex: .\Logs\UserData).
+
+        .PARAMETER WhatIf
+        Simule l’export sans lancer robocopy.
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ManifestPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationRoot
+    )
+
+    Write-MWLogSafe -Message ("Export-MWDataFolders : export des données vers '{0}'." -f $DestinationRoot) -Level 'INFO'
+
+    $items = Get-MWDataFoldersManifest -ManifestPath $ManifestPath
+    if (-not $items -or $items.Count -eq 0) {
+        Write-MWLogSafe -Message "Export-MWDataFolders : manifeste vide, rien à exporter." -Level 'WARN'
+        return
+    }
+
+    if (-not (Test-Path -LiteralPath $DestinationRoot)) {
+        try {
+            New-Item -ItemType Directory -Path $DestinationRoot -Force | Out-Null
+        }
+        catch {
+            Write-MWLogSafe -Message ("Export-MWDataFolders : impossible de créer '{0}' : {1}" -f $DestinationRoot, $_) -Level 'ERROR'
+            return
+        }
+    }
+
+    foreach ($item in $items) {
+        if (-not $item) { continue }
+
+        $key       = [string]$item.Key
+        $src       = [string]$item.SourcePath
+        $rel       = [string]$item.RelativePath
+
+        $include = $true
+        if ($item.PSObject.Properties.Name -contains 'Include') {
+            $include = [bool]$item.Include
+        }
+
+        if (-not $include) {
+            Write-MWLogSafe -Message ("Export-MWDataFolders : '{0}' marqué comme non inclus, on ignore." -f $key) -Level 'DEBUG'
+            continue
+        }
+
+        if ([string]::IsNullOrWhiteSpace($src) -or [string]::IsNullOrWhiteSpace($rel)) {
+            Write-MWLogSafe -Message ("Export-MWDataFolders : entrée invalide (Key='{0}') : chemin vide." -f $key) -Level 'WARN'
+            continue
+        }
+
+        if (-not (Test-Path -LiteralPath $src)) {
+            Write-MWLogSafe -Message ("Export-MWDataFolders : source introuvable pour '{0}' : {1}" -f $key, $src) -Level 'WARN'
+            continue
+        }
+
+        $dst = Join-Path -Path $DestinationRoot -ChildPath $rel
+
+        if (-not (Test-Path -LiteralPath $dst)) {
+            try {
+                New-Item -ItemType Directory -Path $dst -Force | Out-Null
+            }
+            catch {
+                Write-MWLogSafe -Message ("Export-MWDataFolders : impossible de créer '{0}' : {1}" -f $dst, $_) -Level 'ERROR'
+                continue
+            }
+        }
+
+        $target = ("{0} -> {1}" -f $src, $dst)
+
+        if ($PSCmdlet.ShouldProcess($target, "Copie des données (export)")) {
+            Write-MWLogSafe -Message ("Export-MWDataFolders : copie de '{0}' vers '{1}'." -f $src, $dst) -Level 'INFO'
+
+            try {
+                $args = @(
+                    $src,
+                    $dst,
+                    '/E',          # Sous-dossiers, y compris vides
+                    '/COPY:DAT',   # Données, attributs, timestamps (pas les ACL)
+                    '/R:2',        # 2 tentatives
+                    '/W:5',        # 5s d’attente
+                    '/NFL','/NDL', # Pas de liste de fichiers/dossiers
+                    '/NP',         # Pas de pourcentage
+                    '/NJH','/NJS'  # Pas de header/summary
+                )
+
+                & robocopy.exe @args | Out-Null
+                $code = $LASTEXITCODE
+
+                Write-MWLogSafe -Message ("Export-MWDataFolders : robocopy terminé pour '{0}' (code {1})." -f $key, $code) -Level 'DEBUG'
+            }
+            catch {
+                Write-MWLogSafe -Message ("Export-MWDataFolders : erreur lors de la copie de '{0}' : {1}" -f $key, $_) -Level 'ERROR'
+            }
+        }
+    }
+}
+
+function Import-MWDataFolders {
+    <#
+        .SYNOPSIS
+        Importe les dossiers utilisateur à partir du répertoire d’export vers
+        les dossiers spéciaux du profil courant.
+        ...
+    #>
+    [CmdletBinding(SupportsShouldProcess = $true)]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ManifestPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$SourceRoot
+    )
+
+    Write-MWLogSafe -Message ("Import-MWDataFolders : import des données depuis '{0}'." -f $SourceRoot) -Level 'INFO'
+
+    if (-not (Test-Path -LiteralPath $SourceRoot)) {
+        Write-MWLogSafe -Message ("Import-MWDataFolders : SourceRoot introuvable : {0}" -f $SourceRoot) -Level 'ERROR'
+        return
+    }
+
+    $items = Get-MWDataFoldersManifest -ManifestPath $ManifestPath
+    if (-not $items -or $items.Count -eq 0) {
+        Write-MWLogSafe -Message "Import-MWDataFolders : manifeste vide, rien à importer." -Level 'WARN'
+        return
+    }
+
+    # Dossiers cibles pour le profil courant (Desktop, Documents, etc.)
+    # On reconstruit un manifest pour le profil actuel afin d'avoir les bons chemins.
+    $targetManifest = New-MWDataFoldersManifest
+    $targetsByKey   = @{}
+
+    foreach ($t in $targetManifest) {
+        if (-not $t) { continue }
+
+        $k = [string]$t.Key
+        $p = [string]$t.SourcePath
+
+        if ([string]::IsNullOrWhiteSpace($k) -or [string]::IsNullOrWhiteSpace($p)) {
+            continue
+        }
+
+        $targetsByKey[$k] = $p
+    }
+
+    foreach ($item in $items) {
+        if (-not $item) { continue }
+
+        $key       = [string]$item.Key
+        $rel       = [string]$item.RelativePath
+
+        $include = $true
+        if ($item.PSObject.Properties.Name -contains 'Include') {
+            $include = [bool]$item.Include
+        }
+
+        if (-not $include) {
+            Write-MWLogSafe -Message ("Import-MWDataFolders : '{0}' marqué comme non inclus, on ignore." -f $key) -Level 'DEBUG'
+            continue
+        }
+
+        if ([string]::IsNullOrWhiteSpace($key) -or [string]::IsNullOrWhiteSpace($rel)) {
+            Write-MWLogSafe -Message ("Import-MWDataFolders : entrée invalide (Key='{0}') : RelativePath vide." -f $key) -Level 'WARN'
+            continue
+        }
+
+        if (-not $targetsByKey.ContainsKey($key)) {
+            Write-MWLogSafe -Message ("Import-MWDataFolders : aucun dossier cible connu pour la clé '{0}', on ignore." -f $key) -Level 'WARN'
+            continue
+        }
+
+        $src = Join-Path -Path $SourceRoot -ChildPath $rel
+        $dst = [string]$targetsByKey[$key]
+
+        if (-not (Test-Path -LiteralPath $src)) {
+            Write-MWLogSafe -Message ("Import-MWDataFolders : source d'import introuvable pour '{0}' : {1}" -f $key, $src) -Level 'WARN'
+            continue
+        }
+
+        if (-not (Test-Path -LiteralPath $dst)) {
+            try {
+                New-Item -ItemType Directory -Path $dst -Force | Out-Null
+            }
+            catch {
+                Write-MWLogSafe -Message ("Import-MWDataFolders : impossible de créer '{0}' : {1}" -f $dst, $_) -Level 'ERROR'
+                continue
+            }
+        }
+
+        $target = ("{0} -> {1}" -f $src, $dst)
+
+        if ($PSCmdlet.ShouldProcess($target, "Copie des données (import)")) {
+            Write-MWLogSafe -Message ("Import-MWDataFolders : copie de '{0}' vers '{1}'." -f $src, $dst) -Level 'INFO'
+
+            try {
+                $args = @(
+                    $src,
+                    $dst,
+                    '/E',
+                    '/COPY:DAT',
+                    '/R:2',
+                    '/W:5',
+                    '/NFL','/NDL',
+                    '/NP',
+                    '/NJH','/NJS'
+                )
+
+                & robocopy.exe @args | Out-Null
+                $code = $LASTEXITCODE
+
+                Write-MWLogSafe -Message ("Import-MWDataFolders : robocopy terminé pour '{0}' (code {1})." -f $key, $code) -Level 'DEBUG'
+            }
+            catch {
+                Write-MWLogSafe -Message ("Import-MWDataFolders : erreur lors de la copie de '{0}' : {1}" -f $key, $_) -Level 'ERROR'
+            }
+        }
+    }
+}
+
+function Show-MWDataFoldersExportPlan {
+    <#
+        .SYNOPSIS
+        Affiche la liste des dossiers utilisateur à exporter
+        et lance l'export après sélection.
+
+        .DESCRIPTION
+        - (Re)génère le manifest si besoin.
+        - Charge le manifest.
+        - Affiche les dossiers dans un Out-GridView avec sélection multiple.
+        - Met à jour la propriété Include en fonction de la sélection.
+        - Sauvegarde le manifest modifié.
+        - Lance Export-MWDataFolders avec ce manifest.
+
+        Cette fonction est pensée comme un mode interactif "je choisis
+        ce que j'exporte". Pas de -WhatIf ici : si tu veux simuler,
+        utilise directement Export-MWDataFolders -WhatIf.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ManifestPath,
+
+        [Parameter(Mandatory = $true)]
+        [string]$DestinationRoot
+    )
+
+    Write-MWLogSafe -Message ("Show-MWDataFoldersExportPlan : préparation de l'export vers '{0}' avec manifest '{1}'." -f $DestinationRoot, $ManifestPath) -Level 'INFO'
+
+    # (Re)générer le manifest si le fichier n'existe pas
+    if (-not (Test-Path -LiteralPath $ManifestPath)) {
+        Write-MWLogSafe -Message ("Show-MWDataFoldersExportPlan : manifest introuvable, génération : {0}" -f $ManifestPath) -Level 'INFO'
+        Save-MWDataFoldersManifest -ManifestPath $ManifestPath
+    }
+
+    $items = Get-MWDataFoldersManifest -ManifestPath $ManifestPath
+    if (-not $items -or $items.Count -eq 0) {
+        Write-MWLogSafe -Message "Show-MWDataFoldersExportPlan : manifest vide, rien à proposer." -Level 'WARN'
+        return
+    }
+
+    # Affichage interactif : sélection des dossiers à inclure
+    $selected = $items |
+        Select-Object Key, Label, SourcePath, RelativePath, Exists, Include |
+        Out-GridView -Title "Dossiers à exporter (sélectionne ceux à inclure)" -PassThru
+
+    if (-not $selected) {
+        Write-MWLogSafe -Message "Show-MWDataFoldersExportPlan : aucune sélection effectuée." -Level 'INFO'
+        return
+    }
+
+    # On met à jour la propriété Include en fonction de la sélection
+    $selectedKeys = @($selected | ForEach-Object { [string]$_.Key })
+
+    foreach ($item in $items) {
+        if (-not $item) { continue }
+
+        $k = [string]$item.Key
+        $item.Include = $selectedKeys -contains $k
+    }
+
+    # On resauvegarde le manifest mis à jour
+    try {
+        $json = $items | ConvertTo-Json -Depth 5
+        $json | Set-Content -LiteralPath $ManifestPath -Encoding UTF8
+        Write-MWLogSafe -Message "Show-MWDataFoldersExportPlan : manifest mis à jour avec la sélection utilisateur." -Level 'INFO'
+    }
+    catch {
+        Write-MWLogSafe -Message ("Show-MWDataFoldersExportPlan : erreur lors de l'enregistrement du manifest : {0}" -f $_) -Level 'ERROR'
+        return
+    }
+
+    # Puis on lance l'export réel (pas de -WhatIf ici, c'est volontaire)
+    Write-MWLogSafe -Message "Show-MWDataFoldersExportPlan : lancement de Export-MWDataFolders avec le manifest sélectionné." -Level 'INFO'
+    Export-MWDataFolders -ManifestPath $ManifestPath -DestinationRoot $DestinationRoot
+}
+
 Export-ModuleMember -Function `
     Get-MWDefaultDataFolders, `
-    New-MWDataFoldersManifest, `
-    Save-MWDataFoldersManifest
+    Save-MWDataFoldersManifest, `
+    Get-MWDataFoldersManifest, `
+    Export-MWDataFolders, `
+    Import-MWDataFolders, `
+    Show-MWDataFoldersExportPlan
