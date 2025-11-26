@@ -20,7 +20,6 @@ $uiPath       = Join-Path $srcPath 'UI'
 
 # Import des modules Core
 Import-Module (Join-Path $corePath 'Bootstrap.psm1')   -Force -ErrorAction Stop
-Import-Module (Join-Path $corePath 'Logging.psm1')     -Force -ErrorAction Stop
 Import-Module (Join-Path $corePath 'FileCopy.psm1')    -Force -ErrorAction Stop
 Import-Module (Join-Path $corePath 'DataFolders.psm1') -Force -ErrorAction Stop
 Import-Module (Join-Path $corePath 'OneDrive.psm1')    -Force -ErrorAction Stop
@@ -43,9 +42,6 @@ Import-Module (Join-Path $uiPath 'MigrationWizard.UI.psm1') -Force
 
 # Initialisation de l'environnement
 Initialize-MWEnvironment
-
-# Initialisation du logging
-Initialize-MWLogging
 
 # Lancement de l'application
 Start-MigrationWizard

@@ -124,19 +124,16 @@ L'idée : savoir précisément ce qui est \*\*OK / testé\*\*, avant de lister c
 
 \### 1.3. Utilisation actuelle
 
-
-
-\- Tous les nouveaux modules Core (Export, DataFolders, Profile) utilisent ce logging :
+- Tous les nouveaux modules Core (Export, DataFolders, Profile) utilisent ce logging :
 
 &nbsp; - `Write-MWLogInfo "message ..."`
-
 &nbsp; - `Write-MWLogError "message ..."`
-
 &nbsp; - etc.
 
-
+- Le script d’entrée `MigrationWizard.Main.ps1` importe désormais uniquement le module `src\\Modules\\MW.Logging.psm1` pour la journalisation (l’ancien `src\\Core\\Logging.psm1` n’est plus importé dans le script principal).
 
 ---
+
 
 
 
