@@ -28,7 +28,7 @@ $modulesPath = Join-Path $PSScriptRoot 'src\Modules'
 Import-Module (Join-Path $modulesPath 'MW.Logging.psm1') -Force -DisableNameChecking
 
 Initialize-MWLogging
-Write-MWLog -Message 'Démarrage de MigrationWizard.Main.ps1.' -Level 'INFO'
+Write-MWLogInfo -Message 'Démarrage de MigrationWizard.Main.ps1.'
 
 # Assure que le script tourne depuis son propre dossier
 $ScriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path

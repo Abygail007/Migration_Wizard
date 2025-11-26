@@ -112,34 +112,41 @@ function New-MWDataFoldersManifest {
     $folders = Get-MWDefaultDataFolders
     $manifest = @()
 
-    foreach ($folder in $folders) {
-        $rel  = [string]$folder.RelativePath
-        $full = $null
+foreach ($folder in $folders) {
+    $rel  = [string]$folder.RelativePath
+    $full = $null
 
-        if (-not [string]::IsNullOrWhiteSpace($rel) -and -not [string]::IsNullOrWhiteSpace($UserProfilePath)) {
-            try {
-                $full = Join-Path -Path $UserProfilePath -ChildPath $rel
-            }
-            catch {
-                $full = $null
+    if (-not [string]::IsNullOrWhiteSpace($rel) -and -not [string]::IsNullOrWhiteSpace($UserProfilePath)) {
+        try {
+            $standard = Join-Path -Path $UserProfilePath -ChildPath $rel
+            
+            # CORRECTION OneDrive : résoudre le vrai chemin (OneDrive si KFM activé)
+            if (Get-Command -Name Resolve-MWPathWithOneDrive -ErrorAction SilentlyContinue) {
+                $full = Resolve-MWPathWithOneDrive -Path $standard
+                Write-MWLogSafe -Message ("Export manifest : {0} standard='{1}' résolu='{2}'" -f $folder.Key, $standard, $full) -Level 'DEBUG'
+            } else {
+                $full = $standard
             }
         }
-
-        $exists = $false
-        if ($full -and (Test-Path -LiteralPath $full -PathType Container)) {
-            $exists = $true
-        }
-
-        $manifest += [pscustomobject]@{
-            Key          = [string]$folder.Key
-            Label        = [string]$folder.Label
-            RelativePath = $rel
-            SourcePath   = $full
-            Exists       = $exists
-            Include      = [bool]$folder.Include
+        catch {
+            $full = $null
         }
     }
 
+    $exists = $false
+    if ($full -and (Test-Path -LiteralPath $full -PathType Container)) {
+        $exists = $true
+    }
+
+    $manifest += [pscustomobject]@{
+        Key          = [string]$folder.Key
+        Label        = [string]$folder.Label
+        RelativePath = $rel
+        SourcePath   = $full  # Maintenant, c'est le vrai chemin OneDrive si KFM activé
+        Exists       = $exists
+        Include      = [bool]$folder.Include
+    }
+}
     Write-MWLogSafe -Message ("New-MWDataFoldersManifest : {0} dossier(s) décrits dans le manifest." -f $manifest.Count) -Level 'INFO'
 
     return $manifest
