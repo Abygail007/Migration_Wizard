@@ -360,6 +360,8 @@ Export-MWProfile `
 
 &nbsp;   -IncludePrinters        $false `
 
+NOUVEAU :
+
 &nbsp;   -IncludeNetworkDrives   $false `
 
 &nbsp;   -IncludeRdp             $false `
@@ -376,9 +378,56 @@ Export-MWProfile `
 
 ```
 
+## 5. Lancer l’UI WPF en environnement de dev
 
+Cette section décrit **comment tester l’interface graphique** de MigrationWizard  
+avec le nouveau système de logging + les options UserData / DataFolders.
 
-Effet attendu :
+### 5.1. Commande de lancement (avec logging)
+
+Depuis une console PowerShell :
+
+```powershell
+cd "C:\Users\jmthomas\Documents\Creation\MigrationWizard\Github"
+
+# 1) Logging
+Import-Module .\src\Modules\MW.Logging.psm1 -Force -DisableNameChecking
+Initialize-MWLogging
+
+# 2) Lancer le point d’entrée principal (qui charge l’UI)
+.\MigrationWizard.Main.ps1
+```
+
+Remarques :
+
+- `Initialize-MWLogging` crée/alimente le fichier log sous `.\\Logs`.
+- Tu peux ajouter un paramètre de type `-VerboseLog` si ton `Main` le supporte
+  (pour voir davantage de traces pendant tes tests).
+
+### 5.2. Utiliser l’UI pour tester UserData + DataFolders
+
+Ce scénario complète les tests CLI décrits plus haut.
+
+1. Créer un dossier d’export test, par exemple :  
+   `C:\Temp\MigrationTest-UI`.
+2. Lancer l’UI comme indiqué en 5.1.
+3. Dans “Dossier d’export / import du profil”, choisir ce dossier.
+4. Dans les cases à cocher :
+   - cocher **“Données utilisateur (Documents / Bureau…)”**,
+   - cocher **“Mode avancé dossiers (DataFolders)”**,
+   - décocher les autres options (Wifi, imprimantes, etc.) pour se concentrer sur les données.
+5. Cliquer sur **“Exporter le profil”** :  
+   une fenêtre liée à DataFolders doit proposer la sélection des dossiers.
+6. Après export, vérifier dans `C:\Temp\MigrationTest-UI` :
+   - présence de `DataFolders.manifest.json`,
+   - présence d’un dossier `Profile` avec les sous-dossiers (Desktop, Documents, …),
+   - absence d’erreurs dans les logs.
+7. Modifier quelques fichiers sur le Bureau / dans Documents (ou tester sur un autre poste).
+8. Relancer l’UI, sélectionner le même dossier, cocher à nouveau UserData + DataFolders.
+9. Cliquer sur **“Importer le profil”** et valider le plan d’import.
+
+Effet attendu : les dossiers/fichiers sont restaurés correctement à partir du contenu exporté,  
+et le log montre le passage par le mode DataFolders (Export + Import) sans erreur critique.
 
 
 

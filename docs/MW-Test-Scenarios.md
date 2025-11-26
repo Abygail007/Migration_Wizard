@@ -646,21 +646,86 @@ Quand les features principales seront recodées, prévoir un gros test :
 
 
 
+NOUVEAU :
+
 Ce test pourra faire l’objet d’un compte-rendu séparé (ou d’une section dans ce fichier).
 
 
-
 ---
-
-
-
+ 
+ 
+ 
 ```
 
 
-
 ---
 
+## Scénario UI – Export / Import DataFolders (UserData) depuis l’interface
 
+Objectif : vérifier que les nouvelles cases à cocher  
+“Données utilisateur (Documents / Bureau…)” et  
+“Mode avancé dossiers (DataFolders)” fonctionnent correctement **via l’UI WPF**.
 
+### 1. Préparation
 
+1. Créer un dossier de test, par exemple : `C:\Temp\MigrationTest-UI`.
+2. Vérifier que ton profil utilisateur contient bien quelques fichiers :
+   - sur le Bureau,
+   - dans Documents,
+   - éventuellement dans Images / Téléchargements.
 
+### 2. Export via l’UI
+
+1. Lancer MigrationWizard (on détaillera la commande côté `MW-Dev-Env-And-Tests.md`) et ouvrir l’UI.
+2. Dans la zone “Dossier d’export / import du profil”, choisir :  
+   `C:\Temp\MigrationTest-UI`.
+3. Dans la zone “Éléments à inclure”, **cocher uniquement** :
+   - `Données utilisateur (Documents / Bureau…)`
+   - `Mode avancé dossiers (DataFolders)`
+   (tu peux décocher Wifi, imprimantes, etc. pour ce test).
+4. Cliquer sur **“Exporter le profil”**.
+5. Une fenêtre de sélection DataFolders doit apparaître :
+   - sélectionner au minimum `Desktop` et `Documents`,
+   - valider l’export.
+
+Attendu après export :
+
+- À la racine de `C:\Temp\MigrationTest-UI` :
+  - présence d’un fichier `DataFolders.manifest.json`,
+  - présence d’un fichier snapshot JSON (profil).
+- Présence d’un dossier `Profile\Desktop` et `Profile\Documents` avec les fichiers copiés :
+  - les fichiers du Bureau doivent se retrouver sous `Profile\Desktop`,
+  - les fichiers de Documents sous `Profile\Documents`, etc.
+- Dans les logs, des entrées indiquant l’utilisation du mode DataFolders :
+  - `Save-MWDataFoldersManifest`,
+  - `Show-MWDataFoldersExportPlan`,
+  - `Export-MWDataFolders` (ou équivalent).
+
+### 3. Import via l’UI
+
+1. Toujours sur le même poste de test, **déplacer ou renommer** quelques fichiers :
+   - par exemple renommer un dossier sur le Bureau,
+   - ou déplacer temporairement un fichier de Documents.
+2. Relancer l’UI si besoin et choisir **le même dossier** :  
+   `C:\Temp\MigrationTest-UI`.
+3. Dans la zone des cases à cocher :
+   - cocher à nouveau `Données utilisateur (Documents / Bureau…)`,
+   - cocher `Mode avancé dossiers (DataFolders)`,
+   - laisser le reste décoché pour ce test.
+4. Cliquer sur **“Importer le profil”**.
+5. Une fenêtre d’aperçu DataFolders (source → cible) doit s’afficher :
+   - vérifier les chemins,
+   - lancer l’import.
+
+Attendu après import :
+
+- Les fichiers/dossiers déplacés/renommés doivent être **restaurés** depuis le dossier d’export :
+  - le Bureau doit retrouver son contenu de départ,
+  - idem pour Documents (selon ce que tu as modifié).
+- Les logs doivent montrer :
+  - `Show-MWDataFoldersImportPlan`,
+  - `Import-MWDataFolders` (ou équivalent),
+  - aucune erreur bloquante.
+
+Ce scénario complète les tests en ligne de commande déjà décrits  
+et valide le **flux complet via l’interface graphique**.
