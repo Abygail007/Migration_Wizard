@@ -2,45 +2,9 @@
 # Recensement des applications installées (côté utilisateur)
 # Objectif : fournir une liste propre pour l'export, et préparer
 # une future intégration avec RuckZuck.
-
-function Test-MWLogAvailable {
-    <#
-        .SYNOPSIS
-        Vérifie si Write-MWLog est disponible.
-    #>
-    try {
-        $cmd = Get-Command -Name Write-MWLog -ErrorAction SilentlyContinue
-        return ($null -ne $cmd)
-    }
-    catch {
-        return $false
-    }
-}
-
-function Write-MWLogSafe {
-    <#
-        .SYNOPSIS
-        Wrapper sécurisé autour de Write-MWLog (ne plante jamais).
-    #>
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Message,
-
-        [ValidateSet('INFO', 'WARN', 'ERROR', 'DEBUG')]
-        [string]$Level = 'INFO'
-    )
-
-    if (-not (Test-MWLogAvailable)) {
-        return
-    }
-
-    try {
-        Write-MWLog -Message $Message -Level $Level
-    }
-    catch {
-        # On ne casse jamais l'outil juste pour un log
-    }
-}
+#
+# NOTE : Test-MWLogAvailable et Write-MWLogSafe sont maintenant centralises
+#        dans le module MW.Logging.psm1
 
 function Test-MWIsUserFacingApp {
     <#

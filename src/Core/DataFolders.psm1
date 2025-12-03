@@ -4,37 +4,9 @@
 #   - Définir la liste des dossiers utilisateur à gérer (Bureau, Documents, etc.).
 #   - Construire un "manifest" décrivant ces dossiers.
 #   - Sauvegarder ce manifest en JSON à l'emplacement demandé.
-
-function Test-MWLogAvailable {
-    try {
-        $cmd = Get-Command -Name Write-MWLog -ErrorAction SilentlyContinue
-        return ($null -ne $cmd)
-    }
-    catch {
-        return $false
-    }
-}
-
-function Write-MWLogSafe {
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Message,
-
-        [ValidateSet('INFO', 'WARN', 'ERROR', 'DEBUG')]
-        [string]$Level = 'INFO'
-    )
-
-    if (-not (Test-MWLogAvailable)) {
-        return
-    }
-
-    try {
-        Write-MWLog -Message $Message -Level $Level
-    }
-    catch {
-        # On ne casse jamais l'outil juste pour un log.
-    }
-}
+#
+# NOTE : Test-MWLogAvailable et Write-MWLogSafe sont maintenant centralisés
+#        dans le module MW.Logging.psm1
 
 function Get-MWDefaultDataFolders {
     <#
@@ -681,6 +653,7 @@ function Show-MWDataFoldersImportPlan {
 
 Export-ModuleMember -Function `
     Get-MWDefaultDataFolders, `
+    New-MWDataFoldersManifest, `
     Save-MWDataFoldersManifest, `
     Get-MWDataFoldersManifest, `
     Export-MWDataFolders, `

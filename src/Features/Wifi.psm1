@@ -9,27 +9,27 @@ function Export-MWWifiProfiles {
         .SYNOPSIS
             Exporte les profils Wi-Fi de la machine vers un dossier.
         .DESCRIPTION
-            Utilise 'netsh wlan export profile' pour chaque profil dÃ©tectÃ©.
-            Les profils sont exportÃ©s en clair (key=clear) dans des fichiers .xml.
+            Utilise 'netsh wlan export profile' pour chaque profil détecté.
+            Les profils sont exportés en clair (key=clear) dans des fichiers .xml.
     #>
 
     if (-not (Test-Path -LiteralPath $DestinationFolder)) {
         try {
             New-Item -ItemType Directory -Path $DestinationFolder -Force | Out-Null
-            Write-MWLogInfo "Dossier d'export Wi-Fi crÃ©Ã© : $DestinationFolder"
+            Write-MWLogInfo "Dossier d'export Wi-Fi créé : $DestinationFolder"
         } catch {
-            Write-MWLogError "Impossible de crÃ©er le dossier d'export Wi-Fi '$DestinationFolder' : $_"
+            Write-MWLogError "Impossible de créer le dossier d'export Wi-Fi '$DestinationFolder' : $_"
             throw
         }
     }
 
-    Write-MWLogInfo "DÃ©but de l'export des profils Wi-Fi vers : $DestinationFolder"
+    Write-MWLogInfo "Début de l'export des profils Wi-Fi vers : $DestinationFolder"
 
-    # RÃ©cupÃ©ration de la liste des profils via netsh
+    # Récupération de la liste des profils via netsh
     $profilesOutput = netsh wlan show profiles 2>&1
 
     if ($LASTEXITCODE -ne 0) {
-        Write-MWLogError "Erreur lors de la rÃ©cupÃ©ration des profils Wi-Fi via 'netsh wlan show profiles'. Sortie : $profilesOutput"
+        Write-MWLogError "Erreur lors de la récupération des profils Wi-Fi via 'netsh wlan show profiles'. Sortie : $profilesOutput"
         return
     }
 
@@ -45,11 +45,11 @@ function Export-MWWifiProfiles {
     }
 
     if (-not $profiles -or $profiles.Count -eq 0) {
-        Write-MWLogWarning "Aucun profil Wi-Fi dÃ©tectÃ© Ã  exporter."
+        Write-MWLogWarning "Aucun profil Wi-Fi détecté à exporter."
         return
     }
 
-    Write-MWLogInfo ("{0} profil(s) Wi-Fi dÃ©tectÃ©(s) pour l'export." -f $profiles.Count)
+    Write-MWLogInfo ("{0} profil(s) Wi-Fi détecté(s) pour l'export." -f $profiles.Count)
 
     foreach ($profile in $profiles) {
         try {
@@ -57,14 +57,14 @@ function Export-MWWifiProfiles {
             netsh wlan export profile name="$profile" key=clear folder="$DestinationFolder" 2>&1 | Out-Null
 
             if ($LASTEXITCODE -ne 0) {
-                Write-MWLogWarning "Ã‰chec de l'export du profil Wi-Fi '$profile'."
+                Write-MWLogWarning "Échec de l'export du profil Wi-Fi '$profile'."
             }
         } catch {
             Write-MWLogError "Exception lors de l'export du profil Wi-Fi '$profile' : $_"
         }
     }
 
-    Write-MWLogInfo "Export des profils Wi-Fi terminÃ©."
+    Write-MWLogInfo "Export des profils Wi-Fi terminé."
 }
 
 function Import-MWWifiProfiles {
@@ -76,8 +76,8 @@ function Import-MWWifiProfiles {
         .SYNOPSIS
             Importe les profils Wi-Fi depuis un dossier.
         .DESCRIPTION
-            Parcourt les fichiers .xml gÃ©nÃ©rÃ©s par 'netsh wlan export profile'
-            et les rÃ©importe via 'netsh wlan add profile'.
+            Parcourt les fichiers .xml générés par 'netsh wlan export profile'
+            et les réimporte via 'netsh wlan add profile'.
     #>
 
     if (-not (Test-Path -LiteralPath $SourceFolder)) {
@@ -88,7 +88,7 @@ function Import-MWWifiProfiles {
     $xmlFiles = Get-ChildItem -LiteralPath $SourceFolder -Filter '*.xml' -File -ErrorAction SilentlyContinue
 
     if (-not $xmlFiles -or $xmlFiles.Count -eq 0) {
-        Write-MWLogWarning "Aucun fichier .xml de profil Wi-Fi trouvÃ© dans : $SourceFolder"
+        Write-MWLogWarning "Aucun fichier .xml de profil Wi-Fi trouvé dans : $SourceFolder"
         return
     }
 
@@ -100,15 +100,16 @@ function Import-MWWifiProfiles {
             netsh wlan add profile filename="$($file.FullName)" user=all 2>&1 | Out-Null
 
             if ($LASTEXITCODE -ne 0) {
-                Write-MWLogWarning "Ã‰chec de l'import du profil Wi-Fi depuis : $($file.FullName)"
+                Write-MWLogWarning "Échec de l'import du profil Wi-Fi depuis : $($file.FullName)"
             }
         } catch {
             Write-MWLogError "Exception lors de l'import du profil Wi-Fi depuis '$($file.FullName)' : $_"
         }
     }
 
-    Write-MWLogInfo "Import des profils Wi-Fi terminÃ©."
+    Write-MWLogInfo "Import des profils Wi-Fi terminé."
 }
 
 Export-ModuleMember -Function Export-MWWifiProfiles, Import-MWWifiProfiles
+
 

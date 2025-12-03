@@ -37,10 +37,10 @@ function Test-MWSufficientDiskSpace {
     )
     <#
         .SYNOPSIS
-            VÃ©rifie qu'il y a suffisamment d'espace disque pour la copie.
+            Vérifie qu'il y a suffisamment d'espace disque pour la copie.
         .DESCRIPTION
-            Calcule la taille des donnÃ©es Ã  copier puis la compare Ã  l'espace
-            libre sur le volume cible, avec une marge de sÃ©curitÃ©.
+            Calcule la taille des données à copier puis la compare à l'espace
+            libre sur le volume cible, avec une marge de sécurité.
     #>
 
     if (-not (Test-Path -LiteralPath $SourcePath)) {
@@ -52,7 +52,7 @@ function Test-MWSufficientDiskSpace {
 
     $targetRoot = [System.IO.Path]::GetPathRoot($TargetPath)
     if (-not $targetRoot) {
-        Write-MWLogWarning "Impossible de dÃ©terminer le volume cible pour : $TargetPath"
+        Write-MWLogWarning "Impossible de déterminer le volume cible pour : $TargetPath"
         return $false
     }
 
@@ -60,7 +60,7 @@ function Test-MWSufficientDiskSpace {
         $driveInfo = New-Object System.IO.DriveInfo($targetRoot)
         $freeBytes = $driveInfo.AvailableFreeSpace
     } catch {
-        Write-MWLogWarning ("Erreur lors de la rÃ©cupÃ©ration de l'espace libre sur {0} : {1}" -f $targetRoot, $_)
+        Write-MWLogWarning ("Erreur lors de la récupération de l'espace libre sur {0} : {1}" -f $targetRoot, $_)
         return $false
     }
 
@@ -90,7 +90,7 @@ function Copy-MWPath {
         .SYNOPSIS
             Copie un chemin (fichier ou dossier) avec la logique MigrationWizard.
         .DESCRIPTION
-            Utilise Copy-Item pour l'instant. Plus tard, pourra Ãªtre remplacÃ©
+            Utilise Copy-Item pour l'instant. Plus tard, pourra être remplacé
             par RoboCopy avec exclusions, filtres, etc.
     #>
 
@@ -101,7 +101,7 @@ function Copy-MWPath {
 
     if (-not $SkipDiskCheck) {
         if (-not (Test-MWSufficientDiskSpace -SourcePath $SourcePath -TargetPath $TargetPath)) {
-            Write-MWLogError "Copie annulÃ©e pour cause d'espace disque insuffisant."
+            Write-MWLogError "Copie annulée pour cause d'espace disque insuffisant."
             return
         }
     }
@@ -170,4 +170,3 @@ try {
 }}
 
 Export-ModuleMember -Function Test-MWSufficientDiskSpace, Copy-MWPath
-

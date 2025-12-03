@@ -12,11 +12,14 @@ function Export-MWProfile {
         [bool]$IncludePrinters           = $true,
         [bool]$IncludeNetworkDrives      = $true,
         [bool]$IncludeRdp                = $true,
-        [bool]$IncludeBrowsers           = $true,
+        [bool]$IncludeChrome             = $false,
+        [bool]$IncludeEdge               = $false,
+        [bool]$IncludeFirefox            = $false,
         [bool]$IncludeOutlook            = $true,
         [bool]$IncludeWallpaper          = $true,
         [bool]$IncludeDesktopLayout      = $true,
         [bool]$IncludeTaskbarStart       = $true,
+        [bool]$IncludeQuickAccess        = $true,
         [bool]$UseDataFoldersManifest    = $false
         # Plus tard : OneDrive, etc.
     )
@@ -26,7 +29,7 @@ function Export-MWProfile {
             New-Item -ItemType Directory -Path $DestinationFolder -Force | Out-Null
         }
 
-        # Petit fichier d’info sur l’export
+        # Petit fichier d'info sur l'export
         try {
             $info = [pscustomobject]@{
                 ComputerName = $env:COMPUTERNAME
@@ -38,7 +41,7 @@ function Export-MWProfile {
 
             $info | ConvertTo-Json | Set-Content -Path (Join-Path $DestinationFolder 'ProfileInfo.json') -Encoding UTF8
         } catch {
-            Write-MWLogWarning "Export-MWProfile : impossible d’écrire ProfileInfo.json : $($_.Exception.Message)"
+            Write-MWLogWarning "Export-MWProfile : impossible d'écrire ProfileInfo.json : $($_.Exception.Message)"
         }
 
         Write-MWLogInfo "=== Début Export-MWProfile vers '$DestinationFolder' ==="
@@ -109,14 +112,17 @@ function Export-MWProfile {
             Write-MWLogInfo "RDP : export ignoré (IncludeRdp = \$false)."
         }
 
-        if ($IncludeBrowsers) {
+        if ($IncludeChrome -or $IncludeEdge -or $IncludeFirefox) {
             try {
-                Export-MWBrowsers -DestinationFolder $DestinationFolder
+                Export-MWBrowsers -DestinationFolder $DestinationFolder `
+                                  -Chrome:$IncludeChrome `
+                                  -Edge:$IncludeEdge `
+                                  -Firefox:$IncludeFirefox
             } catch {
                 Write-MWLogError "Export navigateurs : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo "Navigateurs : export ignoré (IncludeBrowsers = \$false)."
+            Write-MWLogInfo "Navigateurs : export ignoré (aucun navigateur coché)."
         }
 
         if ($IncludeOutlook) {
@@ -129,29 +135,19 @@ function Export-MWProfile {
             Write-MWLogInfo "Outlook : export ignoré (IncludeOutlook = \$false)."
         }
 
-        if ($IncludeWallpaper) {
+        if ($IncludeWallpaper -or $IncludeDesktopLayout) {
             try {
-                Export-MWWallpaper -DestinationFolder $DestinationFolder
+                Export-WallpaperDesktop -OutRoot $DestinationFolder -IncludeWallpaper $IncludeWallpaper -IncludeDesktopLayout $IncludeDesktopLayout
             } catch {
-                Write-MWLogError "Export fond d’écran : $($_.Exception.Message)"
+                Write-MWLogError "Export fond d'écran/desktop : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo "Fond d’écran : export ignoré (IncludeWallpaper = \$false)."
-        }
-
-        if ($IncludeDesktopLayout) {
-            try {
-                Save-MWDesktopLayout -DestinationFolder $DestinationFolder
-            } catch {
-                Write-MWLogError "Export layout bureau : $($_.Exception.Message)"
-            }
-        } else {
-            Write-MWLogInfo "Layout bureau : export ignoré (IncludeDesktopLayout = \$false)."
+            Write-MWLogInfo "Fond d'écran/desktop : export ignoré."
         }
 
         if ($IncludeTaskbarStart) {
             try {
-                Export-MWTaskbarAndStart -DestinationFolder $DestinationFolder
+                Export-TaskbarStart -OutRoot $DestinationFolder
             } catch {
                 Write-MWLogError "Export Taskbar/Start : $($_.Exception.Message)"
             }
@@ -159,12 +155,57 @@ function Export-MWProfile {
             Write-MWLogInfo "Taskbar/Start : export ignoré (IncludeTaskbarStart = \$false)."
         }
 
+        if ($IncludeQuickAccess) {
+            try {
+                Export-MWQuickAccess -DestinationFolder $DestinationFolder
+            } catch {
+                Write-MWLogError "Export Quick Access : $($_.Exception.Message)"
+            }
+        } else {
+            Write-MWLogInfo "Quick Access : export ignoré (IncludeQuickAccess = \$false)."
+        }
+
+        # ========================================
+        # CRÉATION DU MANIFEST D'EXPORT
+        # ========================================
+        try {
+            Write-MWLogInfo "Création du manifest d'export..."
+            
+            $exportedItems = @{
+                UserData       = $IncludeUserData
+                Wifi           = $IncludeWifi
+                Printers       = $IncludePrinters
+                NetworkDrives  = $IncludeNetworkDrives
+                Rdp            = $IncludeRdp
+                Chrome         = $IncludeChrome
+                Edge           = $IncludeEdge
+                Firefox        = $IncludeFirefox
+                Outlook        = $IncludeOutlook
+                Wallpaper      = $IncludeWallpaper
+                DesktopLayout  = $IncludeDesktopLayout
+                TaskbarStart   = $IncludeTaskbarStart
+                QuickAccess    = $IncludeQuickAccess
+            }
+            
+            $manifestPath = Create-ExportManifest -DestinationFolder $DestinationFolder -ExportedItems $exportedItems
+            
+            if ($manifestPath) {
+                Write-MWLogInfo "Manifest créé avec succès : $manifestPath"
+            }
+        }
+        catch {
+            Write-MWLogWarning "Erreur création manifest : $($_.Exception.Message)"
+            # Non bloquant, on continue
+        }
+        # ========================================
+
         Write-MWLogInfo "=== Fin Export-MWProfile ==="
     } catch {
         Write-MWLogError "Export-MWProfile (global) : $($_.Exception.Message)"
         throw
     }
 }
+
 
 function Import-MWProfile {
     [CmdletBinding()]
@@ -177,11 +218,14 @@ function Import-MWProfile {
         [bool]$IncludePrinters           = $true,
         [bool]$IncludeNetworkDrives      = $true,
         [bool]$IncludeRdp                = $true,
-        [bool]$IncludeBrowsers           = $true,
+        [bool]$IncludeChrome             = $false,
+        [bool]$IncludeEdge               = $false,
+        [bool]$IncludeFirefox            = $false,
         [bool]$IncludeOutlook            = $true,
         [bool]$IncludeWallpaper          = $true,
         [bool]$IncludeDesktopLayout      = $true,
         [bool]$IncludeTaskbarStart       = $true,
+        [bool]$IncludeQuickAccess        = $true,
         [bool]$UseDataFoldersManifest    = $false
     )
 
@@ -195,7 +239,7 @@ function Import-MWProfile {
         if ($IncludeUserData) {
             try {
                 if ($UseDataFoldersManifest) {
-                    # Manifest DataFolders produit lors de l’export
+                    # Manifest DataFolders produit lors de l'export
                     $manifestPath      = Join-Path $SourceFolder 'DataFolders.manifest.json'
                     # Les données exportées sont sous "Profile" (voir Export-MWProfile)
                     $profileSourceRoot = Join-Path $SourceFolder 'Profile'
@@ -259,14 +303,17 @@ function Import-MWProfile {
             Write-MWLogInfo "RDP : import ignoré (IncludeRdp = \$false)."
         }
 
-        if ($IncludeBrowsers) {
+        if ($IncludeChrome -or $IncludeEdge -or $IncludeFirefox) {
             try {
-                Import-MWBrowsers -SourceFolder $SourceFolder
+                Import-MWBrowsers -SourceFolder $SourceFolder `
+                                  -Chrome:$IncludeChrome `
+                                  -Edge:$IncludeEdge `
+                                  -Firefox:$IncludeFirefox
             } catch {
                 Write-MWLogError "Import navigateurs : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo "Navigateurs : import ignoré (IncludeBrowsers = \$false)."
+            Write-MWLogInfo "Navigateurs : import ignoré (aucun navigateur coché)."
         }
 
         if ($IncludeOutlook) {
@@ -279,34 +326,34 @@ function Import-MWProfile {
             Write-MWLogInfo "Outlook : import ignoré (IncludeOutlook = \$false)."
         }
 
-        if ($IncludeWallpaper) {
+        if ($IncludeWallpaper -or $IncludeDesktopLayout) {
             try {
-                Import-MWWallpaper -SourceFolder $SourceFolder
+                Import-WallpaperDesktop -InRoot $SourceFolder -IncludeWallpaper $IncludeWallpaper -IncludeDesktopLayout $IncludeDesktopLayout
             } catch {
-                Write-MWLogError "Import fond d’écran : $($_.Exception.Message)"
+                Write-MWLogError "Import fond d'écran/desktop : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo "Fond d’écran : import ignoré (IncludeWallpaper = \$false)."
-        }
-
-        if ($IncludeDesktopLayout) {
-            try {
-                Restore-MWDesktopLayout -SourceFolder $SourceFolder
-            } catch {
-                Write-MWLogError "Import layout bureau : $($_.Exception.Message)"
-            }
-        } else {
-            Write-MWLogInfo "Layout bureau : import ignoré (IncludeDesktopLayout = \$false)."
+            Write-MWLogInfo "Fond d'écran/desktop : import ignoré."
         }
 
         if ($IncludeTaskbarStart) {
             try {
-                Import-MWTaskbarAndStart -SourceFolder $SourceFolder
+                Import-TaskbarStart -InRoot $SourceFolder
             } catch {
                 Write-MWLogError "Import Taskbar/Start : $($_.Exception.Message)"
             }
         } else {
             Write-MWLogInfo "Taskbar/Start : import ignoré (IncludeTaskbarStart = \$false)."
+        }
+
+        if ($IncludeQuickAccess) {
+            try {
+                Import-MWQuickAccess -SourceFolder $SourceFolder
+            } catch {
+                Write-MWLogError "Import Quick Access : $($_.Exception.Message)"
+            }
+        } else {
+            Write-MWLogInfo "Quick Access : import ignoré (IncludeQuickAccess = \$false)."
         }
 
         Write-MWLogInfo "=== Fin Import-MWProfile ==="
@@ -317,3 +364,4 @@ function Import-MWProfile {
 }
 
 Export-ModuleMember -Function Export-MWProfile, Import-MWProfile
+
