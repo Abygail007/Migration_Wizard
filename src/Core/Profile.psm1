@@ -8,6 +8,7 @@ function Export-MWProfile {
         [string]$DestinationFolder,
 
         [bool]$IncludeUserData           = $true,
+        [string[]]$SelectedFolders       = @(),
         [bool]$IncludeWifi               = $true,
         [bool]$IncludePrinters           = $true,
         [bool]$IncludeNetworkDrives      = $true,
@@ -20,7 +21,8 @@ function Export-MWProfile {
         [bool]$IncludeDesktopLayout      = $true,
         [bool]$IncludeTaskbarStart       = $true,
         [bool]$IncludeQuickAccess        = $true,
-        [bool]$UseDataFoldersManifest    = $false
+        [bool]$UseDataFoldersManifest    = $false,
+        [bool]$IncrementalMode           = $false
         # Plus tard : OneDrive, etc.
     )
 
@@ -46,8 +48,19 @@ function Export-MWProfile {
 
         Write-MWLogInfo "=== Début Export-MWProfile vers '$DestinationFolder' ==="
 
+        # Fonction helper pour mettre à jour l'UI si disponible
+        $updateUI = {
+            param([string]$Msg, [int]$Pct)
+            if (Get-Command -Name Update-ProgressUI -ErrorAction SilentlyContinue) {
+                Update-ProgressUI -Message $Msg -Percent $Pct
+            }
+        }
+
+        & $updateUI "Démarrage de l'export..." 0
+
         # Données utilisateur (Documents, Bureau, etc.)
-        if ($IncludeUserData) {
+        if ($IncludeUserData -or ($SelectedFolders -and $SelectedFolders.Count -gt 0)) {
+            & $updateUI "Analyse des fichiers à copier..." 1
             try {
                 if ($UseDataFoldersManifest) {
                     # Dossier racine des données utilisateur dans l'export
@@ -63,16 +76,17 @@ function Export-MWProfile {
                 }
                 else {
                     # Comportement historique : export brut des dossiers "classiques"
-                    Export-MWUserData -DestinationFolder $DestinationFolder
+                    Export-MWUserData -DestinationFolder $DestinationFolder -SelectedFolders $SelectedFolders -IncrementalMode $IncrementalMode
                 }
             } catch {
                 Write-MWLogError "Export données utilisateur : $($_.Exception.Message)"
             }
         } else {
-            Write-MWLogInfo "Données utilisateur : export ignoré (IncludeUserData = `$false)."
+            Write-MWLogInfo "Données utilisateur : export ignoré (aucun dossier sélectionné)."
         }
 
         if ($IncludeWifi) {
+            & $updateUI "Export des profils Wi-Fi..." 15
             try {
                 Export-MWWifiProfiles -DestinationFolder $DestinationFolder
             } catch {
@@ -83,6 +97,7 @@ function Export-MWProfile {
         }
 
         if ($IncludePrinters) {
+            & $updateUI "Export des imprimantes..." 25
             try {
                 Export-MWPrinters -DestinationFolder $DestinationFolder
             } catch {
@@ -93,6 +108,7 @@ function Export-MWProfile {
         }
 
         if ($IncludeNetworkDrives) {
+            & $updateUI "Export des lecteurs réseau..." 35
             try {
                 Export-MWNetworkDrives -DestinationFolder $DestinationFolder
             } catch {
@@ -103,6 +119,7 @@ function Export-MWProfile {
         }
 
         if ($IncludeRdp) {
+            & $updateUI "Export des connexions RDP..." 40
             try {
                 Export-MWRdpConnections -DestinationFolder $DestinationFolder
             } catch {
@@ -113,11 +130,15 @@ function Export-MWProfile {
         }
 
         if ($IncludeChrome -or $IncludeEdge -or $IncludeFirefox) {
+            & $updateUI "Export des navigateurs..." 50
             try {
-                Export-MWBrowsers -DestinationFolder $DestinationFolder `
-                                  -Chrome:$IncludeChrome `
-                                  -Edge:$IncludeEdge `
-                                  -Firefox:$IncludeFirefox
+                # Construire la liste des navigateurs à exporter
+                $browsersToExport = @()
+                if ($IncludeChrome) { $browsersToExport += 'Chrome' }
+                if ($IncludeEdge) { $browsersToExport += 'Edge' }
+                if ($IncludeFirefox) { $browsersToExport += 'Firefox' }
+
+                Export-MWBrowsers -DestinationFolder $DestinationFolder -BrowsersToExport $browsersToExport
             } catch {
                 Write-MWLogError "Export navigateurs : $($_.Exception.Message)"
             }
@@ -126,6 +147,7 @@ function Export-MWProfile {
         }
 
         if ($IncludeOutlook) {
+            & $updateUI "Export Outlook..." 60
             try {
                 Export-MWOutlookData -DestinationFolder $DestinationFolder
             } catch {
@@ -136,6 +158,7 @@ function Export-MWProfile {
         }
 
         if ($IncludeWallpaper -or $IncludeDesktopLayout) {
+            & $updateUI "Export fond d'écran et bureau..." 70
             try {
                 Export-WallpaperDesktop -OutRoot $DestinationFolder -IncludeWallpaper $IncludeWallpaper -IncludeDesktopLayout $IncludeDesktopLayout
             } catch {
@@ -146,6 +169,7 @@ function Export-MWProfile {
         }
 
         if ($IncludeTaskbarStart) {
+            & $updateUI "Export barre des tâches..." 80
             try {
                 Export-TaskbarStart -OutRoot $DestinationFolder
             } catch {
@@ -156,6 +180,7 @@ function Export-MWProfile {
         }
 
         if ($IncludeQuickAccess) {
+            & $updateUI "Export accès rapides..." 85
             try {
                 Export-MWQuickAccess -DestinationFolder $DestinationFolder
             } catch {
@@ -168,11 +193,13 @@ function Export-MWProfile {
         # ========================================
         # CRÉATION DU MANIFEST D'EXPORT
         # ========================================
+        & $updateUI "Création du manifest..." 90
         try {
             Write-MWLogInfo "Création du manifest d'export..."
             
             $exportedItems = @{
                 UserData       = $IncludeUserData
+                SelectedFolders = $SelectedFolders  # AJOUT: Liste des dossiers exportés
                 Wifi           = $IncludeWifi
                 Printers       = $IncludePrinters
                 NetworkDrives  = $IncludeNetworkDrives
@@ -199,6 +226,7 @@ function Export-MWProfile {
         }
         # ========================================
 
+        & $updateUI "Export terminé !" 100
         Write-MWLogInfo "=== Fin Export-MWProfile ==="
     } catch {
         Write-MWLogError "Export-MWProfile (global) : $($_.Exception.Message)"
@@ -256,6 +284,20 @@ function Import-MWProfile {
                     # Comportement historique
                     Import-MWUserData -SourceFolder $SourceFolder
                 }
+
+                # Réparer les raccourcis après import (remplacer ancien username par nouveau)
+                try {
+                    $manifestPath = Join-Path $SourceFolder 'ExportManifest.json'
+                    if (Test-Path $manifestPath) {
+                        $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+                        $oldUserName = $manifest.ExportMetadata.UserName
+                        if ($oldUserName -and $oldUserName -ne $env:USERNAME) {
+                            Repair-MWShortcuts -OldUserName $oldUserName -NewUserName $env:USERNAME
+                        }
+                    }
+                } catch {
+                    Write-MWLogWarning "Impossible de réparer les raccourcis : $($_.Exception.Message)"
+                }
             } catch {
                 Write-MWLogError "Import données utilisateur : $($_.Exception.Message)"
             }
@@ -305,10 +347,13 @@ function Import-MWProfile {
 
         if ($IncludeChrome -or $IncludeEdge -or $IncludeFirefox) {
             try {
-                Import-MWBrowsers -SourceFolder $SourceFolder `
-                                  -Chrome:$IncludeChrome `
-                                  -Edge:$IncludeEdge `
-                                  -Firefox:$IncludeFirefox
+                # Construire la liste des navigateurs à importer
+                $browsersToImport = @()
+                if ($IncludeChrome) { $browsersToImport += 'Chrome' }
+                if ($IncludeEdge) { $browsersToImport += 'Edge' }
+                if ($IncludeFirefox) { $browsersToImport += 'Firefox' }
+
+                Import-MWBrowsers -SourceFolder $SourceFolder -BrowsersToImport $browsersToImport
             } catch {
                 Write-MWLogError "Import navigateurs : $($_.Exception.Message)"
             }

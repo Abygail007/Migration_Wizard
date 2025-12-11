@@ -57,6 +57,22 @@ function Create-ExportManifest {
     )
     
     try {
+        # Récupérer la liste des applications installées avec RZGet
+        $apps = @()
+        try {
+            $cmd = Get-Command -Name Get-MWApplicationsForExport -ErrorAction SilentlyContinue
+            if ($null -ne $cmd) {
+                $apps = Get-MWApplicationsForExport
+                Write-MWLogInfo "Applications détectées pour export : $($apps.Count)"
+            }
+            else {
+                Write-MWLogWarning "Get-MWApplicationsForExport non disponible, section Applications vide."
+            }
+        }
+        catch {
+            Write-MWLogWarning "Erreur récupération applications : $($_.Exception.Message)"
+        }
+
         $manifest = [pscustomobject]@{
             ExportMetadata = @{
                 ComputerName = $env:COMPUTERNAME
@@ -66,12 +82,13 @@ function Create-ExportManifest {
                 OsVersion    = [System.Environment]::OSVersion.VersionString
             }
             ExportedItems = $ExportedItems
+            Applications  = $apps
         }
-        
+
         $manifestPath = Join-Path $DestinationFolder 'ExportManifest.json'
         $manifest | ConvertTo-Json -Depth 10 | Set-Content -Path $manifestPath -Encoding UTF8
-        
-        Write-MWLogInfo "Manifest d'export créé : $manifestPath"
+
+        Write-MWLogInfo "Manifest d'export créé : $manifestPath ($($apps.Count) applications)"
         return $manifestPath
     }
     catch {
@@ -227,7 +244,22 @@ function Apply-ImportManifest {
             $UIControls.CbAppOutlook.IsChecked = $true
         }
     }
-    
+
+    # FIX: Reconstruire le TreeView des dossiers pour n'afficher QUE les dossiers exportés
+    if ($UIControls.ContainsKey('TreeFolders')) {
+        $importFolder = if ($Manifest.ExportFolder) { $Manifest.ExportFolder } else { $null }
+
+        # Si pas de chemin dans le manifest, essayer de le récupérer du TextBox
+        if (-not $importFolder -and $UIControls.ContainsKey('TbImportSrc')) {
+            $importFolder = $UIControls.TbImportSrc.Text
+        }
+
+        if ($importFolder -and (Test-Path $importFolder)) {
+            Write-MWLogInfo "Reconstruction de l'arbre des dossiers pour Import depuis : $importFolder"
+            Build-FoldersTree -TreeView $UIControls.TreeFolders -IsExport $false -ImportFolder $importFolder
+        }
+    }
+
     Write-MWLogInfo "Manifest appliqué - Options masquées/cochées selon export"
 }
 

@@ -203,23 +203,65 @@ function Build-FoldersTree {
     Contrôle TreeView à peupler
     .PARAMETER IsExport
     True si mode Export, False si Import
+    .PARAMETER ImportFolder
+    Dossier d'export source (pour mode Import uniquement)
     #>
     [CmdletBinding()]
     param(
         [Parameter(Mandatory=$true)]
         $TreeView,
-        
+
         [Parameter(Mandatory=$true)]
-        [bool]$IsExport
+        [bool]$IsExport,
+
+        [Parameter(Mandatory=$false)]
+        [string]$ImportFolder = $null
     )
-    
+
     $TreeView.Items.Clear()
-    
+
     $defaultChecked = $IsExport
-    
-    # Dossiers standards
+
+    # FIX: En mode Import, lister SEULEMENT les dossiers exportés
+    if (-not $IsExport -and $ImportFolder -and (Test-Path $ImportFolder)) {
+        $profilePath = Join-Path $ImportFolder 'Profile'
+
+        if (Test-Path $profilePath) {
+            Write-MWLogInfo "Mode Import : scan des dossiers exportés dans '$profilePath'"
+
+            # Scanner les dossiers qui existent réellement dans l'export
+            $exportedFolders = Get-ChildItem -Path $profilePath -Directory -ErrorAction SilentlyContinue
+
+            foreach ($folder in $exportedFolders) {
+                $folderName = $folder.Name
+
+                # Gérer le cas spécial Public\
+                if ($folderName -eq 'Public') {
+                    $publicSubFolders = Get-ChildItem -Path $folder.FullName -Directory -ErrorAction SilentlyContinue
+                    foreach ($pubFolder in $publicSubFolders) {
+                        $label = "Public\$($pubFolder.Name)"
+                        $destPath = "C:\Users\Public\$($pubFolder.Name)"
+                        $node = New-TreeNode -Path $destPath -Label $label -IsChecked $true
+                        $TreeView.Items.Add($node) | Out-Null
+                        Write-MWLogInfo "Dossier exporté détecté : $label"
+                    }
+                } else {
+                    # Dossier standard
+                    $destPath = Join-Path $env:USERPROFILE $folderName
+                    $node = New-TreeNode -Path $destPath -Label $folderName -IsChecked $true
+                    $TreeView.Items.Add($node) | Out-Null
+                    Write-MWLogInfo "Dossier exporté détecté : $folderName"
+                }
+            }
+
+            Write-MWLogInfo "Arbre Import construit - $($exportedFolders.Count) dossier(s) exporté(s)"
+            return
+        }
+    }
+
+    # Mode Export classique : lister tous les dossiers standards
     $roots = @('Desktop', 'Documents', 'Downloads', 'Pictures', 'Music', 'Videos', 'Favorites')
-    
+
     foreach ($folder in $roots) {
         $path = Join-Path $env:USERPROFILE $folder
         if (Test-Path $path) {
@@ -227,15 +269,15 @@ function Build-FoldersTree {
             $TreeView.Items.Add($node) | Out-Null
         }
     }
-    
+
     # Bureau public
     $pubDesk = 'C:\Users\Public\Desktop'
     if (Test-Path $pubDesk) {
         $node = New-TreeNode -Path $pubDesk -Label 'Public\Desktop' -IsChecked $defaultChecked
         $TreeView.Items.Add($node) | Out-Null
     }
-    
-    Write-MWLogInfo "Arbre des dossiers construit"
+
+    Write-MWLogInfo "Arbre des dossiers construit (mode Export)"
 }
 
 function Build-AppDataTree {

@@ -61,7 +61,7 @@ function Import-MWQuickAccess {
     try {
         $base = Join-Path $SourceFolder 'ExplorerQuickAccess'
         if (-not (Test-Path $base)) {
-            Write-MWLogWarn "ExplorerQuickAccess absent - rien Ã  restaurer"
+            Write-MWLogWarning "ExplorerQuickAccess absent - rien Ã  restaurer"
             return
         }
         
@@ -100,7 +100,7 @@ function Copy-TreeRobust {
     )
     
     if (-not (Test-Path $Source)) {
-        Write-MWLogWarn "Source absente: $Source"
+        Write-MWLogWarning "Source absente: $Source"
         return
     }
     
@@ -126,7 +126,7 @@ function Copy-TreeRobust {
         $rc = $p.ExitCode
         
         if ($rc -ge 8) {
-            Write-MWLogWarn "Copie: code $rc pour $Source -> $Destination"
+            Write-MWLogWarning "Copie: code $rc pour $Source -> $Destination"
         }
         else {
             Write-MWLogInfo "Copie OK: $Source -> $Destination (rc=$rc)"
@@ -135,4 +135,5 @@ function Copy-TreeRobust {
 }
 
 Export-ModuleMember -Function Export-MWQuickAccess, Import-MWQuickAccess
+
 

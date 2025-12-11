@@ -53,7 +53,7 @@ function Import-TaskbarStart {
     try {
         $ui = Join-Path $InRoot 'UI'
         if (-not (Test-Path $ui)) {
-            Write-MWLogWarn "UI absent - rien à restaurer pour Taskbar/Start"
+            Write-MWLogWarning "UI absent - rien à restaurer pour Taskbar/Start"
             return
         }
         
@@ -92,11 +92,11 @@ function Export-TaskbandRegistry {
                 Write-MWLogInfo "Taskband exporté → $reg"
             }
             else {
-                Write-MWLogWarn "Taskband présent mais vide - export ignoré"
+                Write-MWLogWarning "Taskband présent mais vide - export ignoré"
             }
         }
         else {
-            Write-MWLogWarn "Taskband absent - export ignoré"
+            Write-MWLogWarning "Taskband absent - export ignoré"
         }
     }
     catch {
@@ -146,7 +146,7 @@ function Export-StartLayout {
             Write-MWLogInfo "StartLayout exporté → $layout"
         }
         else {
-            Write-MWLogWarn "StartLayout export: rc=$rc (peut être indisponible selon édition)"
+            Write-MWLogWarning "StartLayout export: rc=$rc (peut être indisponible selon édition)"
         }
     }
     catch {
@@ -227,7 +227,7 @@ if (-not (Get-Command Copy-Tree -ErrorAction SilentlyContinue)) {
         param([string]$src, [string]$dst)
         
         if (-not (Test-Path $src)) {
-            Write-MWLogWarn "Source absente: $src"
+            Write-MWLogWarning "Source absente: $src"
             return
         }
         
@@ -252,7 +252,7 @@ if (-not (Get-Command Copy-Tree -ErrorAction SilentlyContinue)) {
         }
         
         if ($rc -ge 8) {
-            Write-MWLogWarn "Copie: code $rc (erreur) $src -> $dst"
+            Write-MWLogWarning "Copie: code $rc (erreur) $src -> $dst"
         }
         else {
             Write-MWLogInfo "Copie OK: $src -> $dst"
@@ -261,3 +261,4 @@ if (-not (Get-Command Copy-Tree -ErrorAction SilentlyContinue)) {
 }
 
 Export-ModuleMember -Function Export-TaskbarStart, Import-TaskbarStart
+

@@ -23,7 +23,8 @@ param(
     [bool]$IncludeDesktopLayout      = $true,
     [bool]$IncludeTaskbarStart       = $true,
     [bool]$IncludeQuickAccess        = $true,
-    [bool]$UseDataFoldersManifest    = $false
+    [bool]$UseDataFoldersManifest    = $false,
+    [bool]$IncrementalMode           = $false
 )
 
 # ===== ÉLÉVATION ADMIN AUTOMATIQUE =====
@@ -175,7 +176,8 @@ if ($PSBoundParameters.ContainsKey('ExportPath')) {
         -IncludeDesktopLayout    $IncludeDesktopLayout `
         -IncludeTaskbarStart     $IncludeTaskbarStart `
         -IncludeQuickAccess      $IncludeQuickAccess `
-        -UseDataFoldersManifest  $UseDataFoldersManifest
+        -UseDataFoldersManifest  $UseDataFoldersManifest `
+        -IncrementalMode         $IncrementalMode
 }
 elseif ($PSBoundParameters.ContainsKey('ImportPath')) {
     Write-MWLog -Message ("Main : exécution en mode CLI IMPORT depuis '{0}'." -f $ImportPath) -Level 'INFO'

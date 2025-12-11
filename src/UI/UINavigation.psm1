@@ -104,26 +104,58 @@ function Update-NavigationButtons {
         return
     }
     
+    # Récupérer btnClose
+    $btnClose = $Window.FindName('btnClose')
+
+    # Récupérer IsExport depuis script scope pour logique conditionnelle
+    $isExportMode = if ($null -ne $script:IsExport) { $script:IsExport } else { $true }
+
     switch ($script:CurrentPage) {
         1 {
             $btnPrev.Visibility = 'Collapsed'
             $btnNext.Visibility = 'Visible'
             $btnRun.Visibility = 'Collapsed'
+            if ($btnClose) { $btnClose.Visibility = 'Collapsed' }
         }
-        {$_ -in @(2, 20, 21, 22)} {
+        {$_ -in @(2, 21, 22)} {
             $btnPrev.Visibility = 'Visible'
             $btnNext.Visibility = 'Visible'
             $btnRun.Visibility = 'Collapsed'
+            if ($btnClose) { $btnClose.Visibility = 'Collapsed' }
+        }
+        20 {
+            # Page passwords: comportement différent selon mode
+            # Export: prev/next visible (navigation normale)
+            # Import: seulement next vers page terminée
+            if ($isExportMode) {
+                $btnPrev.Visibility = 'Visible'
+                $btnNext.Visibility = 'Visible'
+            } else {
+                $btnPrev.Visibility = 'Collapsed'
+                $btnNext.Visibility = 'Visible'
+            }
+            $btnRun.Visibility = 'Collapsed'
+            if ($btnClose) { $btnClose.Visibility = 'Collapsed' }
         }
         3 {
             $btnPrev.Visibility = 'Visible'
             $btnNext.Visibility = 'Collapsed'
             $btnRun.Visibility = 'Visible'
+            if ($btnClose) { $btnClose.Visibility = 'Collapsed' }
         }
-        {$_ -in @(4, 5)} {
+        4 {
+            # Page d'exécution
             $btnPrev.Visibility = 'Collapsed'
             $btnNext.Visibility = 'Collapsed'
             $btnRun.Visibility = 'Collapsed'
+            if ($btnClose) { $btnClose.Visibility = 'Collapsed' }
+        }
+        5 {
+            # Page terminée : afficher bouton Terminer
+            $btnPrev.Visibility = 'Collapsed'
+            $btnNext.Visibility = 'Collapsed'
+            $btnRun.Visibility = 'Collapsed'
+            if ($btnClose) { $btnClose.Visibility = 'Visible' }
         }
     }
 }
@@ -174,12 +206,21 @@ function Navigate-Next {
             $nextPage = 2
         }
         2 {
-            # Page 2 → Page 20 (passwords) pour Export ET Import
-            $nextPage = 20
+            # Page 2 → Page 20 (passwords) SEULEMENT pour Export, sinon résumé
+            if ($IsExport) {
+                $nextPage = 20
+            } else {
+                $nextPage = 3  # Import: aller directement au résumé
+            }
         }
         20 {
-            # Page passwords → Page 3 (résumé)
-            $nextPage = 3
+            # Page passwords → Page 3 (résumé) pour Export
+            # Pour Import: → Page 5 (terminée) car on vient de l'exécution
+            if ($IsExport) {
+                $nextPage = 3
+            } else {
+                $nextPage = 5  # Import: passwords → terminée
+            }
         }
         3 {
             # Page 3 → Pas de suivant (c'est le résumé)
@@ -230,8 +271,12 @@ function Navigate-Previous {
             $prevPage = 2
         }
         3 {
-            # Résumé → Page 20 (passwords) pour Export ET Import
-            $prevPage = 20
+            # Résumé → Page 20 (passwords) pour Export, Page 2 pour Import
+            if ($IsExport) {
+                $prevPage = 20
+            } else {
+                $prevPage = 2  # Import: retour aux options
+            }
         }
         4 {
             # Exécution → Page 3

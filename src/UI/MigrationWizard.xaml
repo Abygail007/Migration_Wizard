@@ -276,13 +276,21 @@
               </StackPanel>
             </GroupBox>
             
+            <GroupBox Header="📦 Applications">
+              <StackPanel Background="{StaticResource PanelDark}">
+                <CheckBox Name="cbInstallApplications"
+                          Content="Détecter &amp; installer applications"
+                          IsChecked="True"/>
+              </StackPanel>
+            </GroupBox>
+
             <GroupBox Header="⚙️ Options copie">
               <StackPanel Background="{StaticResource PanelDark}">
-                <CheckBox Name="cbSkipCopy" 
-                          Content="Ne pas copier de fichiers" 
+                <CheckBox Name="cbSkipCopy"
+                          Content="Ne pas copier de fichiers"
                           IsChecked="False"/>
-                <CheckBox Name="cbFilterBig" 
-                          Content="Exclure ISO/VM/archives" 
+                <CheckBox Name="cbFilterBig"
+                          Content="Exclure ISO/VM/archives"
                           IsChecked="False"/>
               </StackPanel>
             </GroupBox>
@@ -377,146 +385,148 @@
       
       <!-- PAGE PASSWORDS : Mots de passe navigateurs -->
       <Grid Name="pagePasswords" Visibility="Collapsed">
-        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" MaxWidth="800">
-          <TextBlock Name="lblPwTitle" 
-                     Text="🔒 Export des mots de passe navigateurs" 
-                     FontSize="20" 
-                     FontWeight="Bold" 
-                     HorizontalAlignment="Center"
-                     Margin="0,0,0,24"/>
-          
-          <UniformGrid Name="gridPwTiles" 
-                       Columns="3" 
-                       Margin="0,0,0,32"
-                       HorizontalAlignment="Center"/>
-          
-          <Border Background="{StaticResource PanelDark}" 
-                  BorderBrush="{StaticResource Accent}" 
-                  BorderThickness="1" 
-                  CornerRadius="8" 
-                  Padding="16"
-                  Margin="0,0,0,0"
-                  MaxWidth="800">
-            <StackPanel Name="stackPwInstructions">
-              <TextBlock FontWeight="Bold" Margin="0,0,0,12" FontSize="14">💡 Comment exporter les mots de passe :</TextBlock>
-              <!-- Les instructions seront ajoutées dynamiquement ici selon les navigateurs détectés -->
-            </StackPanel>
-          </Border>
-        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" Padding="20">
+          <StackPanel HorizontalAlignment="Center" MaxWidth="900">
+            <TextBlock Name="lblPwTitle"
+                       Text="🔒 Export des mots de passe navigateurs"
+                       FontSize="20"
+                       FontWeight="Bold"
+                       HorizontalAlignment="Center"
+                       Margin="0,20,0,24"/>
+
+            <UniformGrid Name="gridPwTiles"
+                         Columns="3"
+                         Margin="0,0,0,32"
+                         HorizontalAlignment="Center"/>
+
+            <Border Background="{StaticResource PanelDark}"
+                    BorderBrush="{StaticResource Accent}"
+                    BorderThickness="1"
+                    CornerRadius="8"
+                    Padding="16"
+                    Margin="0,0,0,20">
+              <StackPanel Name="stackPwInstructions" MaxHeight="500">
+                <TextBlock FontWeight="Bold" Margin="0,0,0,12" FontSize="14">💡 Comment exporter les mots de passe :</TextBlock>
+                <!-- Les instructions seront ajoutées dynamiquement ici selon les navigateurs détectés -->
+              </StackPanel>
+            </Border>
+          </StackPanel>
+        </ScrollViewer>
       </Grid>
       
       <!-- PAGE 3 : Résumé + Configuration -->
       <Grid Name="page3" Visibility="Collapsed">
-        <StackPanel>
-          <!-- Panel Export -->
-          <StackPanel Name="panelExport" Visibility="Collapsed" Margin="0,0,0,12">
-            <GroupBox Header="📤 Configuration Export">
-              <Grid Background="{StaticResource PanelDark}">
-                <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                
-                <StackPanel Grid.Row="0" Margin="8">
-                  <TextBlock Text="Nom du client (nom du dossier d'export) :" Margin="0,0,0,4"/>
-                  <TextBox Name="tbClientName" />
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel>
+            <!-- Panel Export -->
+            <StackPanel Name="panelExport" Visibility="Collapsed" Margin="0,0,0,12">
+              <GroupBox Header="📤 Configuration Export">
+                <Grid Background="{StaticResource PanelDark}">
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+
+                  <StackPanel Grid.Row="0" Margin="8">
+                    <TextBlock Text="Nom du client (nom du dossier d'export) :" Margin="0,0,0,4"/>
+                    <TextBox Name="tbClientName" />
+                  </StackPanel>
+
+                  <StackPanel Grid.Row="1" Margin="8">
+                    <TextBlock Text="Dossier destination :" Margin="0,0,0,4"/>
+                    <DockPanel>
+                      <Button Name="btnPickExport" Content="📁 Parcourir..." DockPanel.Dock="Right" Width="120"/>
+                      <TextBox Name="tbExportDest" IsReadOnly="True"/>
+                    </DockPanel>
+                  </StackPanel>
+                </Grid>
+              </GroupBox>
+            </StackPanel>
+
+            <!-- Panel Import -->
+            <StackPanel Name="panelImport" Visibility="Collapsed" Margin="0,0,0,12">
+              <GroupBox Header="📥 Configuration Import">
+                <Grid Background="{StaticResource PanelDark}">
+                  <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                  </Grid.RowDefinitions>
+
+                  <StackPanel Grid.Row="0" Margin="8">
+                    <TextBlock Text="Dossier client (export source) :" Margin="0,0,0,4"/>
+                    <DockPanel>
+                      <Button Name="btnPickImport" Content="📁 Parcourir..." DockPanel.Dock="Right" Width="120"/>
+                      <TextBox Name="tbImportSrc" IsReadOnly="True"/>
+                    </DockPanel>
+                  </StackPanel>
+
+                  <StackPanel Grid.Row="1" Margin="8">
+                    <TextBlock Text="Nom du client détecté :" Margin="0,0,0,4"/>
+                    <TextBox Name="tbImportClient" IsReadOnly="True" Background="#1a1a2e"/>
+                  </StackPanel>
+                </Grid>
+              </GroupBox>
+            </StackPanel>
+
+            <!-- Résumé -->
+            <GroupBox Header="📋 Résumé avant exécution" Margin="0,0,0,12">
+              <StackPanel Background="{StaticResource PanelDark}">
+                <TextBox Name="txtSummary"
+                         IsReadOnly="True"
+                         TextWrapping="Wrap"
+                         VerticalScrollBarVisibility="Auto"
+                         HorizontalScrollBarVisibility="Disabled"
+                         MinHeight="250"
+                         MaxHeight="400"
+                         Margin="8"
+                         FontFamily="Consolas"
+                         FontSize="12"/>
+
+                <StackPanel Orientation="Horizontal" Margin="8,8,8,8">
+                  <CheckBox Name="cbConfirm"
+                            Content="✅ Je confirme ce plan d'exécution"
+                            IsChecked="False"
+                            FontWeight="Bold"
+                            FontSize="14"/>
                 </StackPanel>
-                
-                <StackPanel Grid.Row="1" Margin="8">
-                  <TextBlock Text="Dossier destination :" Margin="0,0,0,4"/>
-                  <DockPanel>
-                    <Button Name="btnPickExport" Content="📁 Parcourir..." DockPanel.Dock="Right" Width="120"/>
-                    <TextBox Name="tbExportDest" IsReadOnly="True"/>
-                  </DockPanel>
-                </StackPanel>
-              </Grid>
-            </GroupBox>
-          </StackPanel>
-          
-          <!-- Panel Import -->
-          <StackPanel Name="panelImport" Visibility="Collapsed" Margin="0,0,0,12">
-            <GroupBox Header="📥 Configuration Import">
-              <Grid Background="{StaticResource PanelDark}">
-                <Grid.RowDefinitions>
-                  <RowDefinition Height="Auto"/>
-                  <RowDefinition Height="Auto"/>
-                </Grid.RowDefinitions>
-                
-                <StackPanel Grid.Row="0" Margin="8">
-                  <TextBlock Text="Dossier client (export source) :" Margin="0,0,0,4"/>
-                  <DockPanel>
-                    <Button Name="btnPickImport" Content="📁 Parcourir..." DockPanel.Dock="Right" Width="120"/>
-                    <TextBox Name="tbImportSrc" IsReadOnly="True"/>
-                  </DockPanel>
-                </StackPanel>
-                
-                <StackPanel Grid.Row="1" Margin="8">
-                  <TextBlock Text="Nom du client détecté :" Margin="0,0,0,4"/>
-                  <TextBox Name="tbImportClient" IsReadOnly="True" Background="#1a1a2e"/>
-                </StackPanel>
-              </Grid>
-            </GroupBox>
-          </StackPanel>
-          
-          <!-- Résumé -->
-          <GroupBox Header="📋 Résumé avant exécution">
-            <Grid Background="{StaticResource PanelDark}">
-              <Grid.RowDefinitions>
-                <RowDefinition Height="*"/>
-                <RowDefinition Height="Auto"/>
-              </Grid.RowDefinitions>
-              
-              <TextBox Name="txtSummary"
-                       Grid.Row="0"
-                       IsReadOnly="True"
-                       TextWrapping="Wrap"
-                       VerticalScrollBarVisibility="Auto"
-                       HorizontalScrollBarVisibility="Disabled"
-                       Height="300"
-                       Margin="8"
-                       FontFamily="Consolas"
-                       FontSize="12"/>
-              
-              <StackPanel Grid.Row="1" Orientation="Horizontal" Margin="8">
-                <CheckBox Name="cbConfirm" 
-                          Content="✅ Je confirme ce plan d'exécution" 
-                          IsChecked="False"
-                          FontWeight="Bold"
-                          FontSize="14"/>
               </StackPanel>
-            </Grid>
-          </GroupBox>
-        </StackPanel>
+            </GroupBox>
+          </StackPanel>
+        </ScrollViewer>
       </Grid>
       
       <!-- PAGE 4 : Exécution -->
       <Grid Name="page4" Visibility="Collapsed">
-        <StackPanel>
-          <TextBlock Text="⏳ Exécution en cours..." FontSize="20" FontWeight="Bold" Margin="0,0,0,16"/>
-          
-          <ProgressBar Name="progressBar" 
-                       Height="24" 
-                       Minimum="0" 
-                       Maximum="100"
-                       Margin="0,0,0,8"/>
-          
-          <Label Name="lblProgress" 
-                 Content="Initialisation..." 
-                 FontSize="13"
-                 Margin="0,0,0,16"/>
-          
-          <GroupBox Header="📄 Journal d'exécution">
-            <RichTextBox Name="txtLog" 
-                         Height="450" 
-                         IsReadOnly="True" 
-                         VerticalScrollBarVisibility="Auto"
-                         Background="{StaticResource PanelDark}" 
-                         Foreground="{StaticResource Ink}" 
-                         BorderBrush="{StaticResource Accent}"
-                         FontFamily="Consolas"
-                         FontSize="11"/>
-          </GroupBox>
-        </StackPanel>
+        <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+          <StackPanel>
+            <TextBlock Text="⏳ Exécution en cours..." FontSize="20" FontWeight="Bold" Margin="0,0,0,16"/>
+
+            <ProgressBar Name="progressBar"
+                         Height="24"
+                         Minimum="0"
+                         Maximum="100"
+                         Margin="0,0,0,8"/>
+
+            <Label Name="lblProgress"
+                   Content="Initialisation..."
+                   FontSize="13"
+                   Margin="0,0,0,16"/>
+
+            <CheckBox Name="cbPlaySound"
+                      Content="🔔 Jouer un son à la fin"
+                      IsChecked="True"
+                      Margin="0,0,0,12"/>
+
+            <!-- Animation Nyan Cat -->
+            <GroupBox Header="🏁 Migration en cours..." Name="grpAnimation">
+              <Grid Background="#1a1a2e" Height="300">
+                <Viewbox Stretch="Uniform" MaxWidth="400" MaxHeight="250">
+                  <Image Name="imgNyanCat" Stretch="Uniform"/>
+                </Viewbox>
+              </Grid>
+            </GroupBox>
+          </StackPanel>
+        </ScrollViewer>
       </Grid>
       
       <!-- PAGE 5 : Terminé -->

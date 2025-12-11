@@ -39,13 +39,18 @@ function Test-OutlookInstalled {
 }
 
 function Test-WiFiAvailable {
-    try {
-        $adapters = Get-NetAdapter | Where-Object { $_.PhysicalMediaType -like '*802.11*' -or $_.InterfaceDescription -like '*Wi-Fi*' -or $_.InterfaceDescription -like '*Wireless*' }
-        return ($adapters.Count -gt 0)
-    }
-    catch {
-        return $false
-    }
+    # FIX: Toujours retourner $true car l'export WiFi fonctionne maintenant depuis ProgramData
+    # même sans adaptateur WiFi actif (lit les profils XML système)
+    return $true
+
+    # Ancienne logique qui masquait le WiFi si pas d'adaptateur:
+    # try {
+    #     $adapters = Get-NetAdapter | Where-Object { $_.PhysicalMediaType -like '*802.11*' -or $_.InterfaceDescription -like '*Wi-Fi*' -or $_.InterfaceDescription -like '*Wireless*' }
+    #     return ($adapters.Count -gt 0)
+    # }
+    # catch {
+    #     return $false
+    # }
 }
 
 function Get-MWLogoImageSource {
@@ -77,6 +82,56 @@ function Get-MWLogoImageSource {
     }
 }
 
+function Get-MWNyanCatImageSource {
+    <#
+    .SYNOPSIS
+    Retourne un BitmapImage pour le GIF Nyan Cat (depuis base64 ou fichier)
+    #>
+    try {
+        # Priorité 1: Base64 embarqué (mode portable)
+        if ($script:NyanCatBase64 -and -not [string]::IsNullOrWhiteSpace($script:NyanCatBase64)) {
+            Write-MWLogInfo "Chargement Nyan Cat depuis base64 embarqué"
+            $bytes = [Convert]::FromBase64String($script:NyanCatBase64)
+            $ms = New-Object System.IO.MemoryStream(,$bytes)
+
+            $image = New-Object System.Windows.Media.Imaging.BitmapImage
+            $image.BeginInit()
+            $image.StreamSource = $ms
+            $image.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+            $image.EndInit()
+            $image.Freeze()
+
+            return $image
+        }
+
+        # Priorité 2: Fichier externe (mode développement)
+        if (-not [string]::IsNullOrWhiteSpace($PSScriptRoot)) {
+            # CORRECTION: Utiliser JPG au lieu de GIF (WPF ne supporte pas les GIF animés)
+            $imgPath = Join-Path $PSScriptRoot "..\..\Tools\nyan-cat-gif-1.jpg"
+            $imgPath = [System.IO.Path]::GetFullPath($imgPath)
+
+            if (Test-Path -LiteralPath $imgPath -ErrorAction SilentlyContinue) {
+                Write-MWLogInfo "Chargement Nyan Cat depuis fichier: $imgPath"
+                $image = New-Object System.Windows.Media.Imaging.BitmapImage
+                $image.BeginInit()
+                $image.UriSource = New-Object System.Uri($imgPath, [System.UriKind]::Absolute)
+                $image.CacheOption = [System.Windows.Media.Imaging.BitmapCacheOption]::OnLoad
+                $image.EndInit()
+                $image.Freeze()
+
+                return $image
+            }
+        }
+
+        Write-MWLogWarning "Nyan Cat image introuvable (ni base64, ni fichier)"
+        return $null
+    }
+    catch {
+        Write-MWLogError "Erreur chargement Nyan Cat GIF : $($_.Exception.Message)"
+        return $null
+    }
+}
+
 function Hide-ConditionalControls {
     <#
     .SYNOPSIS
@@ -101,14 +156,15 @@ function Prevent-SystemSleep {
 [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
 public static extern uint SetThreadExecutionState(uint esFlags);
 '@
-        $ES_CONTINUOUS = [uint32]0x80000000
-        $ES_SYSTEM_REQUIRED = [uint32]0x00000001
-        $ES_AWAYMODE_REQUIRED = [uint32]0x00000040
-        
+        # Constantes pour SetThreadExecutionState (en décimal pour éviter overflow)
+        $ES_CONTINUOUS = [uint32]2147483648
+        $ES_SYSTEM_REQUIRED = [uint32]1
+        $ES_AWAYMODE_REQUIRED = [uint32]64
+
         if (-not ([System.Management.Automation.PSTypeName]'MWPowerHelper').Type) {
             Add-Type -MemberDefinition $code -Namespace 'MigrationWizard' -Name 'PowerHelper'
         }
-        
+
         [MigrationWizard.PowerHelper]::SetThreadExecutionState($ES_CONTINUOUS -bor $ES_SYSTEM_REQUIRED -bor $ES_AWAYMODE_REQUIRED) | Out-Null
         Write-MWLogInfo "Prévention mise en veille activée"
     }
@@ -119,7 +175,7 @@ public static extern uint SetThreadExecutionState(uint esFlags);
 
 function Allow-SystemSleep {
     try {
-        $ES_CONTINUOUS = [uint32]0x80000000
+        $ES_CONTINUOUS = [uint32]2147483648
         [MigrationWizard.PowerHelper]::SetThreadExecutionState($ES_CONTINUOUS) | Out-Null
         Write-MWLogInfo "Prévention mise en veille désactivée"
     }
@@ -135,37 +191,31 @@ function Fill-ClientsList {
     #>
     [CmdletBinding()]
     param()
-    
+
     Write-MWLogInfo "Remplissage de la liste des clients..."
-    
+
     # Vider la liste
     $script:UI.lstClients.Items.Clear()
-    
-    # Scanner les dossiers clients
-    $defaultPath = "C:\MigrationWizard\Exports"
-    
-    # Créer le dossier s'il n'existe pas
-    if (-not (Test-Path $defaultPath)) {
-        try {
-            New-Item -ItemType Directory -Path $defaultPath -Force | Out-Null
-            Write-MWLogInfo "Dossier créé : $defaultPath"
-        }
-        catch {
-            Write-MWLogWarning "Impossible de créer $defaultPath : $($_.Exception.Message)"
-        }
-    }
-    
+
+    # Scanner les dossiers clients dans le dossier d'exécution de l'EXE
+    $defaultPath = Get-DefaultExportPath
+
+    Write-MWLogInfo "Scan des clients dans : $defaultPath"
+
+    # Le dossier existe toujours (c'est le dossier où l'EXE est lancé)
+    # Pas besoin de le créer
+
     # Scanner les clients
     try {
         $clients = Scan-ClientFolders -BasePath $defaultPath
-        
+
         if ($clients -and $clients.Count -gt 0) {
             Write-MWLogInfo "$($clients.Count) client(s) détecté(s)"
-            
+
             foreach ($client in $clients) {
                 $script:UI.lstClients.Items.Add($client) | Out-Null
             }
-            
+
             # Sélectionner le premier par défaut
             if ($script:UI.lstClients.Items.Count -gt 0) {
                 $script:UI.lstClients.SelectedIndex = 0
@@ -173,6 +223,18 @@ function Fill-ClientsList {
         }
         else {
             Write-MWLogInfo "Aucun client détecté dans $defaultPath"
+
+            # Ajouter un message dans la liste
+            $noClientMessage = [PSCustomObject]@{
+                FolderPath = ""
+                FolderName = ""
+                ComputerName = ""
+                UserName = ""
+                Date = [DateTime]::MinValue
+                DisplayInfo = "❌ Aucun export détecté - Utilisez 'Parcourir manuellement' ci-dessous"
+                Manifest = $null
+            }
+            $script:UI.lstClients.Items.Add($noClientMessage) | Out-Null
         }
     }
     catch {
@@ -213,7 +275,8 @@ function Start-MWMigrationWizardUI {
         
         $reader = New-Object System.Xml.XmlNodeReader $xaml
         $script:Window = [Windows.Markup.XamlReader]::Load($reader)
-        
+        $Global:MWWindow = $script:Window  # Référence globale pour les autres modules
+
         Write-MWLogInfo "XAML chargé avec succès"
     }
     catch {
@@ -254,6 +317,7 @@ function Initialize-UIControls {
     
     # TextBoxes chemins
     $script:UI.TbExportDest = $script:Window.FindName('tbExportDest')
+    $script:UI.TbClientName = $script:Window.FindName('tbClientName')
     $script:UI.TbImportSrc  = $script:Window.FindName('tbImportSrc')
     
     # Boutons parcourir
@@ -288,6 +352,7 @@ function Initialize-UIControls {
     
     # Checkboxes options
     $script:UI.CbShowCached = $script:Window.FindName('cbShowHidden')   # "Afficher dossiers cachés"
+    $script:UI.CbInstallApplications = $script:Window.FindName('cbInstallApplications')
     $script:UI.CbSkipCopy   = $script:Window.FindName('cbSkipCopy')
     $script:UI.CbFilterBig  = $script:Window.FindName('cbFilterBig')
     
@@ -309,7 +374,9 @@ function Initialize-UIControls {
     # Page exécution
     $script:UI.ProgressBar  = $script:Window.FindName('progressBar')
     $script:UI.TxtProgress  = $script:Window.FindName('lblProgress')
-    
+    $script:UI.CbPlaySound  = $script:Window.FindName('cbPlaySound')
+    $script:UI.ImgNyanCat   = $script:Window.FindName('imgNyanCat')
+
     # Page terminée
     $script:UI.TxtResult    = $script:Window.FindName('txtResult')  # n'existe pas (restera $null pour l'instant)
     $script:UI.BtnOpenLog   = $script:Window.FindName('hlLog')      # Hyperlink qui ouvre le log
@@ -445,7 +512,16 @@ function Initialize-UIData {
             $script:UI.ImgLogoBg.Source = $logoImage
         }
     }
-    
+
+    # Charger le GIF Nyan Cat pour l'animation
+    if ($script:UI.ImgNyanCat) {
+        $nyanImage = Get-MWNyanCatImageSource
+        if ($nyanImage) {
+            $script:UI.ImgNyanCat.Source = $nyanImage
+            Write-MWLogInfo "Animation Nyan Cat chargée"
+        }
+    }
+
     # Initialiser les tuiles de navigateurs pour l'export de mots de passe
     Initialize-BrowserPasswordTiles
     
@@ -616,9 +692,25 @@ function Initialize-ApplicationsPage {
             $script:UI.lblAppsStatus.Text = "❌ Dossier d'import non valide"
             return
         }
-        
+
+        # Charger le manifest d'export
+        $manifestPath = Join-Path $importFolder "ExportManifest.json"
+        if (-not (Test-Path $manifestPath)) {
+            $script:UI.lblAppsStatus.Text = "❌ Fichier ExportManifest.json introuvable"
+            $script:UI.lblAppsCount.Text = "0 application à installer"
+            return
+        }
+
+        $snapshot = Import-MWExportSnapshot -Path $manifestPath
+
+        if (-not $snapshot.Applications -or $snapshot.Applications.Count -eq 0) {
+            $script:UI.lblAppsStatus.Text = "✅ Aucune application dans l'export"
+            $script:UI.lblAppsCount.Text = "0 application à installer"
+            return
+        }
+
         # Chercher les applications manquantes
-        $missingApps = Get-MWMissingApplicationsFromExport -ExportFolder $importFolder
+        $missingApps = Get-MWMissingApplicationsFromExport -ExportedApplications $snapshot.Applications
         
         if (-not $missingApps -or $missingApps.Count -eq 0) {
             $script:UI.lblAppsStatus.Text = "✅ Toutes les applications sont déjà installées"
@@ -692,18 +784,50 @@ function Update-ProgressUI {
         [string]$Message,
         [int]$Percent = -1
     )
-    
+
     if ($script:UI.TxtProgress -and $Message) {
-        $script:UI.TxtProgress.Text = $Message
+        # lblProgress est un Label, donc utilise Content et non Text
+        $script:UI.TxtProgress.Content = $Message
     }
-    
+
     if ($script:UI.ProgressBar -and $Percent -ge 0) {
         $script:UI.ProgressBar.Value = $Percent
     }
-    
+
     # Forcer le rafraîchissement UI (WPF)
     if ($script:Window) {
         $script:Window.Dispatcher.Invoke([action]{}, 'Background')
+    }
+}
+
+function Invoke-MWCompletionSound {
+    <#
+    .SYNOPSIS
+    Joue une mélodie de victoire à la fin de la migration (si l'option est cochée)
+    #>
+    try {
+        # FIX: Utiliser [Console]::Beep() pour une vraie mélodie personnalisée
+        # Mélodie de victoire style "Tadaaaa!" (notes: Mi-Sol-Do-Mi-Sol)
+
+        [Console]::Beep(659, 200)   # Mi (E5)
+        Start-Sleep -Milliseconds 50
+        [Console]::Beep(784, 200)   # Sol (G5)
+        Start-Sleep -Milliseconds 50
+        [Console]::Beep(1047, 200)  # Do (C6)
+        Start-Sleep -Milliseconds 50
+        [Console]::Beep(1319, 400)  # Mi (E6)
+        Start-Sleep -Milliseconds 100
+        [Console]::Beep(1047, 600)  # Do (C6) - note finale prolongée
+    }
+    catch {
+        Write-MWLogWarning "Impossible de jouer le son de fin : $($_.Exception.Message)"
+
+        # Fallback: utiliser les sons système si Console.Beep échoue
+        try {
+            [System.Media.SystemSounds]::Asterisk.Play()
+        } catch {
+            # Silencieux si même le fallback échoue
+        }
     }
 }
 
@@ -727,21 +851,13 @@ function Handle-NextClick {
     }
     
     # ========================================
-    # PAGE 2 → Validation + Résumé + Titre passwords
+    # PAGE 2 → Prépar résumé + Titre passwords (pas de validation ici)
     # ========================================
     if ($currentPage -eq 2) {
-        # Valider sélections (Export uniquement)
-        if ($script:IsExport) {
-            $path = $script:UI.TbExportDest.Text
-            if (-not (Validate-ExportPath -Path $path)) {
-                return
-            }
-        }
-        
-        # Préparer résumé
+        # Préparer résumé (construction rapide, pas de scan de fichiers)
         $summaryText = Build-SummaryText -IsExport $script:IsExport -UIControls $script:UI -TreeFolders $script:UI.TreeFolders -TreeAppData $script:UI.TreeAppData
         $script:UI.TxtSummary.Text = $summaryText
-        
+
         # Mettre à jour le titre de la page passwords
         Update-PasswordPageTitle
     }
@@ -753,11 +869,20 @@ function Handle-NextClick {
         # Page sélection client
         if ($script:UI.lstClients.SelectedItem) {
             $client = $script:UI.lstClients.SelectedItem
-            $script:UI.TbImportSrc.Text = $client.FolderPath
-            Write-MWLogInfo "Client sélectionné : $($client.FolderName)"
-            
-            # Initialiser la page Applications (analyse des apps manquantes)
-            Initialize-ApplicationsPage
+
+            # Vérifier que le client sélectionné est valide (pas le message d'erreur)
+            if ($client.FolderPath -and (Test-Path $client.FolderPath)) {
+                $script:UI.TbImportSrc.Text = $client.FolderPath
+                Write-MWLogInfo "Client sélectionné : $($client.FolderName)"
+
+                # Initialiser la page Applications (analyse des apps manquantes)
+                Initialize-ApplicationsPage
+            }
+            else {
+                # Aucun client valide sélectionné (message d'erreur ou invalide)
+                [System.Windows.MessageBox]::Show("Veuillez parcourir manuellement pour sélectionner un dossier d'export.", "Aucun export détecté", 'OK', 'Warning')
+                return
+            }
         }
         else {
             [System.Windows.MessageBox]::Show("Veuillez sélectionner un client ou parcourir manuellement.", "Aucune sélection", 'OK', 'Warning')
@@ -795,10 +920,10 @@ function Handle-RunClick {
     Lance l'export ou import
     #>
     Write-MWLogInfo "=== Lancement migration ==="
-    
+
     # Passer à la page d'exécution
     Show-UIPage -PageNumber 4 -Window $script:Window
-    
+
     # Empêcher mise en veille
     Prevent-SystemSleep
     
@@ -808,10 +933,91 @@ function Handle-RunClick {
     try {
         if ($script:IsExport) {
             Write-MWLogInfo "Démarrage EXPORT..."
-            
-$params = @{
-                DestinationFolder    = $script:UI.TbExportDest.Text
-                IncludeUserData      = $true
+
+            # Construire le chemin final : dossier de base + nom du client + nom PC
+            $basePath = $script:UI.TbExportDest.Text
+            $clientName = $script:UI.TbClientName.Text
+
+            if ([string]::IsNullOrWhiteSpace($clientName)) {
+                $clientName = "Client_$(Get-Date -Format 'yyyy-MM-dd')"
+            }
+
+            # Ajouter le nom du PC dans un sous-dossier
+            $pcName = $env:COMPUTERNAME
+            $clientPath = Join-Path $basePath $clientName
+            $finalPath = Join-Path $clientPath $pcName
+
+            Write-MWLogInfo "Structure hiérarchique : $basePath\$clientName\$pcName"
+            Write-MWLogInfo "Chemin final d'export : $finalPath"
+
+            # Créer le dossier client si nécessaire
+            if (-not (Test-Path $clientPath)) {
+                New-Item -ItemType Directory -Path $clientPath -Force | Out-Null
+                Write-MWLogInfo "Dossier client créé : $clientPath"
+            }
+
+            # Détecter si export existe déjà (même PC)
+            $incrementalMode = $false
+            $pathAlreadyValidated = $false
+
+            if (Test-Path $finalPath) {
+                $manifestPath = Join-Path $finalPath "ExportManifest.json"
+                if (Test-Path $manifestPath) {
+                    try {
+                        $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+                        $previousPC = $manifest.ExportMetadata.ComputerName
+
+                        # Même PC détecté
+                        if ($previousPC -eq $env:COMPUTERNAME) {
+                            Write-MWLogInfo "Export existant détecté sur le même PC : $previousPC"
+
+                            # Proposer mode incrémental
+                            $result = [System.Windows.MessageBox]::Show(
+                                "Un export existe déjà pour ce PC.`n`n" +
+                                "✅ Mise à jour (recommandé) : Copie uniquement les fichiers modifiés = SUPER RAPIDE`n" +
+                                "❌ Export complet : Réexporte tout (écrase l'existant)`n`n" +
+                                "Voulez-vous faire une MISE À JOUR incrémentale ?",
+                                "Export existant détecté",
+                                [System.Windows.MessageBoxButton]::YesNoCancel,
+                                [System.Windows.MessageBoxImage]::Question
+                            )
+
+                            if ($result -eq [System.Windows.MessageBoxResult]::Cancel) {
+                                Write-MWLogWarning "Export annulé par l'utilisateur"
+                                Allow-SystemSleep
+                                return
+                            }
+                            elseif ($result -eq [System.Windows.MessageBoxResult]::Yes) {
+                                $incrementalMode = $true
+                                $pathAlreadyValidated = $true  # Pas besoin de revalider
+                                Write-MWLogInfo "Mode MISE À JOUR INCRÉMENTALE activé"
+                            }
+                            else {
+                                $pathAlreadyValidated = $true  # Pas besoin de revalider
+                                Write-MWLogInfo "Mode EXPORT COMPLET choisi"
+                            }
+                        }
+                    }
+                    catch {
+                        Write-MWLogWarning "Erreur lecture manifest existant : $($_.Exception.Message)"
+                    }
+                }
+            }
+
+            # Valider le chemin final (uniquement si pas déjà validé)
+            if (-not $pathAlreadyValidated -and -not (Validate-ExportPath -Path $finalPath -ShowError $true)) {
+                Write-MWLogWarning "Export annulé par l'utilisateur"
+                Allow-SystemSleep
+                return
+            }
+
+            # Déterminer si on exporte des dossiers utilisateur
+            $includeUserData = ($options.Folders -and $options.Folders.Count -gt 0)
+
+            $params = @{
+                DestinationFolder    = $finalPath
+                IncludeUserData      = $includeUserData
+                SelectedFolders      = $options.Folders
                 IncludeWifi          = $options.Wifi
                 IncludePrinters      = $options.Printers
                 IncludeNetworkDrives = $options.NetworkDrives
@@ -824,12 +1030,13 @@ $params = @{
                 IncludeDesktopLayout = $options.DesktopLayout
                 IncludeTaskbarStart  = $options.Taskbar
                 IncludeQuickAccess   = $options.QuickAccess
+                IncrementalMode      = $incrementalMode
             }
-            
+
             Export-MWProfile @params
-            
+
             if ($script:UI.TxtResult) {
-                $script:UI.TxtResult.Text = "✅ Export terminé avec succès !`n`nDossier : $($script:UI.TbExportDest.Text)"
+                $script:UI.TxtResult.Text = "✅ Export terminé avec succès !`n`nDossier : $finalPath"
             }
         }
         else {
@@ -838,7 +1045,7 @@ $params = @{
             # ========================================
             # ÉTAPE 1 : Installer les applications sélectionnées
             # ========================================
-            if ($script:UI.lstAppsToInstall -and $script:UI.lstAppsToInstall.Items.Count -gt 0) {
+            if ($options.InstallApplications -and $script:UI.lstAppsToInstall -and $script:UI.lstAppsToInstall.Items.Count -gt 0) {
                 $appsToInstall = $script:UI.lstAppsToInstall.Items | Where-Object { $_.Selected }
                 if ($appsToInstall.Count -gt 0) {
                     Write-MWLogInfo "Installation de $($appsToInstall.Count) application(s)..."
@@ -868,7 +1075,12 @@ $params = @{
                     }
                 }
             }
-            
+            else {
+                if (-not $options.InstallApplications) {
+                    Write-MWLogInfo "Installation d'applications désactivée par l'utilisateur"
+                }
+            }
+
             # ========================================
             # ÉTAPE 2 : Restaurer les données
             # ========================================
@@ -910,6 +1122,11 @@ $params = @{
     finally {
         Allow-SystemSleep
 
+        # Jouer le son de fin si l'option est cochée
+        if ($script:UI.CbPlaySound -and $script:UI.CbPlaySound.IsChecked) {
+            Invoke-MWCompletionSound
+        }
+
         # Afficher le chemin du log si le label existe
         $logPath = Get-MWLogPath
         if ($script:UI.LblLogPath -and $logPath) {
@@ -922,7 +1139,12 @@ $params = @{
             }
         }
 
-        Show-UIPage -PageNumber 5 -Window $script:Window
+        # CORRECTION: Pour Import, afficher d'abord page passwords, puis page terminée
+        if (-not $script:IsExport) {
+            Show-UIPage -PageNumber 20 -Window $script:Window -IsExport $script:IsExport
+        } else {
+            Show-UIPage -PageNumber 5 -Window $script:Window
+        }
     }
 
 }

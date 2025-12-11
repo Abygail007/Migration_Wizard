@@ -60,7 +60,20 @@ function Test-MWIsUserFacingApp {
         'Microsoft Edge WebView2*',
         'NVIDIA * Driver*',
         '*Graphics Driver*',
-        '*Driver*'
+        '*Driver*',
+        # OEM et constructeurs
+        'Dell *',
+        'HP *',
+        'Lenovo *',
+        'Intel(R) *',
+        'AMD *',
+        'Realtek *',
+        '*Firmware*',
+        '*BIOS*',
+        # Utilitaires système
+        '*System Update*',
+        '*Diagnostic*',
+        '*Support Assistant*'
     )
 
     foreach ($pattern in $excludeNamePatterns) {
@@ -477,10 +490,12 @@ function Get-MWMissingApplicationsFromExport {
 
         if (-not $match) {
             $missing += [pscustomobject]@{
-                Name       = $name
-                Version    = $version
-                Publisher  = [string]$exp.Publisher
-                RuckZuckId = $exp.RuckZuckId
+                Name        = $name
+                DisplayName = $name  # Alias pour compatibilité UI
+                Version     = $version
+                Publisher   = [string]$exp.Publisher
+                WingetId    = $exp.WingetId  # Ajout Winget
+                RuckZuckId  = $exp.RuckZuckId
             }
         }
     }

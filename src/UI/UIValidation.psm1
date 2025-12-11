@@ -255,20 +255,20 @@ function Get-SafeFileName {
 function Get-DefaultExportPath {
     <#
     .SYNOPSIS
-    Génère un chemin d'export par défaut
+    Retourne le dossier où l'EXE est exécuté comme destination par défaut
     .OUTPUTS
-    Chemin suggéré
+    Chemin du dossier d'exécution
     #>
     [CmdletBinding()]
     param()
-    
-    $basePath = "C:\MigrationWizard\Exports"
-    $timestamp = Get-Date -Format "yyyy-MM-dd_HH-mm"
-    $computerName = Get-SafeFileName -Name $env:COMPUTERNAME
-    
-    $exportPath = Join-Path $basePath "Export_${computerName}_${timestamp}"
-    
-    return $exportPath
+
+    # Retourner le dossier où l'EXE/script est exécuté
+    if ($Global:MWRootPath) {
+        return $Global:MWRootPath
+    }
+
+    # Fallback : dossier courant
+    return (Get-Location).Path
 }
 
 # Export des fonctions

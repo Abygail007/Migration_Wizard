@@ -6,7 +6,7 @@
 function Scan-ClientFolders {
     <#
     .SYNOPSIS
-    Scanne un dossier pour détecter les exports clients valides
+    Scanne un dossier pour détecter les exports clients valides (structure Client/PC)
     .PARAMETER BasePath
     Chemin du dossier contenant les exports (ex: C:\MigrationWizard\Exports)
     .OUTPUTS
@@ -17,49 +17,80 @@ function Scan-ClientFolders {
         [Parameter(Mandatory=$true)]
         [string]$BasePath
     )
-    
+
     if (-not (Test-Path $BasePath)) {
         Write-MWLogWarning "Scan-ClientFolders : Chemin inexistant : $BasePath"
         return @()
     }
-    
+
     $clients = @()
-    
-    # Scanner tous les sous-dossiers
+
+    # Scanner tous les sous-dossiers (niveau Client)
     Get-ChildItem -Path $BasePath -Directory | ForEach-Object {
-        $folder = $_
-        $manifestPath = Join-Path $folder.FullName "ExportManifest.json"
-        
-        # Vérifier présence du manifest
-        if (Test-Path $manifestPath) {
+        $clientFolder = $_
+
+        # Scanner les sous-dossiers PC dans chaque dossier client
+        Get-ChildItem -Path $clientFolder.FullName -Directory | ForEach-Object {
+            $pcFolder = $_
+            $manifestPath = Join-Path $pcFolder.FullName "ExportManifest.json"
+
+            # Vérifier présence du manifest dans le dossier PC
+            if (Test-Path $manifestPath) {
+                try {
+                    $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+                    $metadata = $manifest.ExportMetadata
+
+                    $clients += [PSCustomObject]@{
+                        FolderPath = $pcFolder.FullName
+                        FolderName = $pcFolder.Name
+                        ClientName = $clientFolder.Name
+                        ComputerName = $metadata.ComputerName
+                        UserName = $metadata.UserName
+                        Date = [DateTime]::Parse($metadata.Date)
+                        DisplayInfo = "$($clientFolder.Name) > $($metadata.ComputerName) - $($metadata.UserName) ($($metadata.Date))"
+                        Manifest = $manifest
+                    }
+
+                    Write-MWLogInfo "Export détecté : $($clientFolder.Name)\$($pcFolder.Name)"
+                }
+                catch {
+                    Write-MWLogWarning "Manifest invalide dans $($clientFolder.Name)\$($pcFolder.Name) : $($_.Exception.Message)"
+                }
+            }
+        }
+
+        # Fallback : si le dossier client contient directement un manifest (ancienne structure)
+        $directManifestPath = Join-Path $clientFolder.FullName "ExportManifest.json"
+        if (Test-Path $directManifestPath) {
             try {
-                $manifest = Get-Content $manifestPath -Raw | ConvertFrom-Json
+                $manifest = Get-Content $directManifestPath -Raw | ConvertFrom-Json
                 $metadata = $manifest.ExportMetadata
-                
+
                 $clients += [PSCustomObject]@{
-                    FolderPath = $folder.FullName
-                    FolderName = $folder.Name
+                    FolderPath = $clientFolder.FullName
+                    FolderName = $clientFolder.Name
+                    ClientName = $clientFolder.Name
                     ComputerName = $metadata.ComputerName
                     UserName = $metadata.UserName
                     Date = [DateTime]::Parse($metadata.Date)
                     DisplayInfo = "$($metadata.UserName)@$($metadata.ComputerName) - $($metadata.Date)"
                     Manifest = $manifest
                 }
-                
-                Write-MWLogInfo "Client détecté : $($folder.Name)"
+
+                Write-MWLogInfo "Export détecté (ancienne structure) : $($clientFolder.Name)"
             }
             catch {
-                Write-MWLogWarning "Manifest invalide dans $($folder.Name) : $($_.Exception.Message)"
+                Write-MWLogWarning "Manifest invalide dans $($clientFolder.Name) : $($_.Exception.Message)"
             }
         }
     }
-    
+
     # Trier par date décroissante (plus récent en premier)
-    $clients = $clients | Sort-Object -Property Date -Descending
-    
-    Write-MWLogInfo "Scan terminé : $($clients.Count) client(s) trouvé(s)"
-    
-    return $clients
+    $clients = @($clients | Sort-Object -Property Date -Descending)
+
+    Write-MWLogInfo "Scan terminé : $($clients.Count) export(s) trouvé(s)"
+
+    return ,$clients
 }
 
 function Get-ClientMetadata {

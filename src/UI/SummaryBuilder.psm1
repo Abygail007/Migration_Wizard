@@ -187,30 +187,35 @@ function Get-SelectedFoldersFromTree {
         $TreeView
     )
     
-    $selected = @()
-    
+    $script:selectedFolders = @()
+
     function Get-CheckedItems {
         param($Items)
-        
+
         foreach ($item in $Items) {
             if ($item -is [System.Windows.Controls.TreeViewItem]) {
                 $chk = $item.Header
-                if ($chk -is [System.Windows.Controls.CheckBox] -and $chk.IsChecked -eq $true) {
-                    if ($chk.Tag -and $chk.Tag.Path) {
-                        $selected += $chk.Tag.Path
+                # CORRECTION: Accepter $true ET $null (indéterminé), mais PAS $false
+                if ($chk -is [System.Windows.Controls.CheckBox] -and $chk.IsChecked -ne $false) {
+                    # Si coché complètement ($true), ajouter ce dossier
+                    if ($chk.IsChecked -eq $true -and $chk.Tag -and $chk.Tag.Path) {
+                        $script:selectedFolders += $chk.Tag.Path
+                        Write-MWLogInfo "Dossier sélectionné détecté: $($chk.Tag.Path)"
                     }
                 }
-                
+
+                # TOUJOURS parcourir les enfants pour trouver les items cochés
                 if ($item.Items.Count -gt 0) {
                     Get-CheckedItems -Items $item.Items
                 }
             }
         }
     }
-    
+
     Get-CheckedItems -Items $TreeView.Items
-    
-    return $selected
+
+    Write-MWLogInfo "Get-SelectedFoldersFromTree: $($script:selectedFolders.Count) dossier(s) sélectionné(s)"
+    return $script:selectedFolders
 }
 
 function Get-AppDataSelectionFromTree {
@@ -325,6 +330,7 @@ function Get-SelectedOptions {
     if ($UIControls.ContainsKey('CbAppEdge')) { $options.Edge = [bool]$UIControls.CbAppEdge.IsChecked }
     if ($UIControls.ContainsKey('CbAppFirefox')) { $options.Firefox = [bool]$UIControls.CbAppFirefox.IsChecked }
     if ($UIControls.ContainsKey('CbAppOutlook')) { $options.Outlook = [bool]$UIControls.CbAppOutlook.IsChecked }
+    if ($UIControls.ContainsKey('CbInstallApplications')) { $options.InstallApplications = [bool]$UIControls.CbInstallApplications.IsChecked }
     if ($UIControls.ContainsKey('CbSkipCopy')) { $options.SkipCopy = [bool]$UIControls.CbSkipCopy.IsChecked }
     if ($UIControls.ContainsKey('CbFilterBig')) { $options.FilterBig = [bool]$UIControls.CbFilterBig.IsChecked }
     
